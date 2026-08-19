@@ -1,0 +1,21 @@
+# Build output. build.sh creates the jar fresh from build/, so neither is an
+# input to anything -- a clone builds both in one command.
+build/
+script-bin/
+*.class
+rscd-client.jar
+
+# Written by the client at runtime: the server you last joined, your
+# favourites, your window size. Start from settings.ini.example.
+settings.ini
+cache/
+
+# Screenshots and recordings land in media/<character>/. media/fonts/ is the
+# one thing under here that is an asset rather than output -- see its README.
+media/*
+!media/fonts/
+
+# Tooling debris
+*~
+*.swp
+.DS_Store

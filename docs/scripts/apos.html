@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APOS scripts — the compatibility tier</title>
+<style>
+body{max-width:52rem;margin:2rem auto;padding:0 1rem;font:16px/1.6 Georgia,serif;background:#f6f2e8;color:#2b2417}
+h1,h2,h3{font-family:Verdana,sans-serif;color:#5c3d10}
+h1{border-bottom:3px double #b8a06a;padding-bottom:.3rem}
+h2{border-bottom:1px solid #d8c9a3;padding-bottom:.2rem;margin-top:2.2rem}
+code,pre{font:14px/1.5 Consolas,Menlo,monospace;background:#efe7d2;border-radius:3px}
+code{padding:.05rem .3rem}
+pre{padding:.8rem 1rem;overflow-x:auto;border:1px solid #d8c9a3}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:1rem 0}
+th,td{border:1px solid #d8c9a3;padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#efe7d2;font-family:Verdana,sans-serif;font-size:14px}
+a{color:#7a4a12}
+.tip{background:#fdf6dd;border-left:4px solid #c9a227;padding:.6rem 1rem;margin:1rem 0}
+</style>
+</head>
+<body>
+
+<p><a href="index.html">&larr; all scripting tiers</a></p>
+
+<h1>APOS scripts</h1>
+
+<p>APOS was a separate, later bot with an API unrelated to STS's. This tier
+exists so scripts written for it run untouched — sixteen survive in
+<code>scripts/APOS/</code> and all sixteen run. It is a complete,
+maintained surface, but if you are writing something new, write
+<a href="sts.html">STS</a>; this page is mostly for reading and fixing the
+scripts people still have.</p>
+
+<h2>The shape — the client owns the loop</h2>
+
+<p>The difference that matters: <strong>an APOS script never loops and never
+sleeps.</strong> It answers <code>main()</code> with how many milliseconds to
+be left alone, and the client calls it again after that long. This is a real,
+complete script:</p>
+
+<pre><code>public class TPM_Position extends Script {
+    public TPM_Position(Extension e) { super(e); }
+
+    public void init(String params) { }
+
+    public int main() {
+        return random(1, 500);
+    }
+
+    public void paint() {
+        drawString("Position: " + getX() + "," + getY(),
+                   115, 40, 1, 0xFFFFFF);
+    }
+}</code></pre>
+
+<ul>
+<li><code>init(String params)</code> — once, at <code>/start Name(params)</code>.</li>
+<li><code>int main()</code> — do one step of work, return the delay in ms
+before the next call. Returning quickly and often is the idiom; sleeping
+inside <code>main()</code> is wrong in APOS and stays wrong here.</li>
+<li><code>paint()</code> — draw your overlay with <code>drawString()</code>;
+font and colour per line.</li>
+</ul>
+
+<p>Naming is APOS's <code>lowerCamelCase</code> (<code>getX()</code>,
+<code>isBanking()</code>, <code>useItemOnObject()</code>) against STS's
+<code>PascalCase</code>. They are different APIs that happen to share a
+client; no attempt is made to unify them.</p>
+
+<h2>What is under it</h2>
+
+<p><a href="../../src/org/rscdaemon/client/Script.java"><code>Script.java</code></a>
+is the framework: 114 methods — the 88 the surviving corpus calls, plus the
+overloads and pairs that go with them — mapped onto the native
+<code>Methods</code> layer, each carrying its own comment. Nothing in
+<code>Script</code> is <code>final</code>, because two surviving scripts
+override <code>talkToNpc()</code> and <code>useOnNpc()</code> and call
+<code>super</code> from inside.</p>
+
+<p>Two classes exist under <code>com/aposbot/</code> because ten of the
+sixteen scripts import them by name to build an AWT settings window:
+<code>Constants.ICONS</code> and <code>StandardCloseHandler</code>. Nothing
+was copied from APOS to write them.</p>
+
+<h2>The four honest gaps</h2>
+
+<p>All four are things this client lacks, not things APOS did wrong — scripts
+that use them load and run, they just see the documented answer:</p>
+
+<table>
+<tr><td><code>onChatMessage(msg, name, mod, admin)</code></td><td>the two booleans meant "sender is a moderator / administrator" and arrive <code>false</code> — the client is not told.</td></tr>
+<tr><td><code>autohop()</code></td><td>stored, never acted on. Nothing here hops worlds by itself.</td></tr>
+<tr><td><code>isSleeping()</code></td><td>always <code>false</code>; <code>useSleepingBag()</code> still uses the bag. There is no sleep screen.</td></tr>
+<tr><td><code>onTradeRequest()</code></td><td>recovered from the server message "<i>name</i> wishes to trade with you" — there is no trade-request packet to hook.</td></tr>
+</table>
+
+<div class="tip"><strong>One documented contradiction, resolved in the
+script's favour:</strong> APOS documented <code>useItemOnObject()</code>'s
+first argument as an inventory <em>slot</em>, but both surviving call sites
+pass an item <em>id</em>. Both readings are accepted — slot first.</div>
+
+<h2>Read next</h2>
+
+<p><code>scripts/APOS/</code> — <code>BowFletcher.java</code> and
+<code>Caster.java</code> are clean examples of the
+<code>init/main/paint</code> rhythm and the settings-window idiom.</p>
+
+</body>
+</html>

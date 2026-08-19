@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculators — skill planning in the client</title>
+<style>
+body{max-width:52rem;margin:2rem auto;padding:0 1rem;font:16px/1.6 Georgia,serif;background:#f6f2e8;color:#2b2417}
+h1,h2,h3{font-family:Verdana,sans-serif;color:#5c3d10}
+h1{border-bottom:3px double #b8a06a;padding-bottom:.3rem}
+h2{border-bottom:1px solid #d8c9a3;padding-bottom:.2rem;margin-top:2.2rem}
+code,pre{font:14px/1.5 Consolas,Menlo,monospace;background:#efe7d2;border-radius:3px}
+code{padding:.05rem .3rem}
+pre{padding:.8rem 1rem;overflow-x:auto;border:1px solid #d8c9a3}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:1rem 0}
+th,td{border:1px solid #d8c9a3;padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#efe7d2;font-family:Verdana,sans-serif;font-size:14px}
+a{color:#7a4a12}
+.tip{background:#fdf6dd;border-left:4px solid #c9a227;padding:.6rem 1rem;margin:1rem 0}
+</style>
+</head>
+<body>
+
+<p><a href="index.html">&larr; all scripting tiers</a></p>
+
+<h1>Calculators</h1>
+
+<p>The layout every RSC calculator page has had since tip.it — inputs down the
+left, answers on the right — living on the F2 menu instead of in a browser. A
+calculator is one <code>.java</code> file dropped into <code>calculators/</code>
+beside the jar: no forking the client, no build step. The client compiles it
+when you pick it, the same way scripts work (on a plain JRE, a prebuilt
+<code>.class</code> in <code>calculators-bin/</code> is used instead).</p>
+
+<h2>Quick start</h2>
+
+<pre><code>public class MyCalc extends Calculator {
+
+   Input level  = number("Strength level").def(baseLevel(STRENGTH)).range(1, 99);
+   Input weapon = choice("Weapon", "None", 0, "Rune 2-handed Sword", 70);
+   Input potted = toggle("Super strength");
+
+   public MyCalc(mudclient mc) { super(mc); }
+
+   public String about() {
+      return "One line shown under the calculator while it is open.";
+   }
+
+   public void compute(Output out) {
+      double power = weapon.val();
+      out.text("Your maximum hit is " + level.num(), GOLD);
+   }
+}</code></pre>
+
+<p>Declare inputs as fields — they are drawn down the left in declaration
+order. Do all the maths in <code>compute(Output)</code> — it is called again
+every time the player changes an input. No <code>package</code> line, no
+imports, as with scripts.</p>
+
+<h2>Inputs</h2>
+
+<table>
+<tr><th>Factory</th><th>Widget</th><th>Notes</th></tr>
+<tr><td><code>number(label)</code></td><td>typed field</td><td>digits, <code>.</code> and <code>-</code>; blank falls back to <code>.def()</code></td></tr>
+<tr><td><code>choice(label, name, value, name, value, …)</code></td><td>dropdown</td><td>labels alternate with their values</td></tr>
+<tr><td><code>choice(label, String[] names)</code></td><td>dropdown</td><td>value is the position in the array</td></tr>
+<tr><td><code>toggle(label)</code></td><td>on/off</td><td></td></tr>
+</table>
+
+<p>Fluent on any input: <code>.def(value)</code> for the starting state,
+<code>.range(min, max)</code> to clamp a typed number. Reading one back:
+<code>.num()</code> (int), <code>.val()</code> (double), <code>.on()</code>
+(boolean), <code>.name()</code> (selected label), <code>.index()</code>
+(its position).</p>
+
+<h2>The player, live</h2>
+
+<p><code>baseLevel(skill)</code>, <code>curLevel(skill)</code>,
+<code>exp(skill)</code>, <code>skillName(skill)</code> read the logged-in
+character; skill constants <code>ATTACK</code> through <code>THIEVING</code>
+are on <code>Calculator</code>. Read them inside <code>compute()</code> and
+the output follows the character; read them only in <code>.def()</code> and
+they are starting values the player can type over — the tip.it way round.</p>
+
+<p>And because <code>Calculator</code> extends <code>Methods</code>, the whole
+<a href="sts.html">scripting API</a> is available: a calculator that counts
+the yew logs actually in your bank is a perfectly good calculator.</p>
+
+<h2>Output</h2>
+
+<pre><code>out.text("plain line");
+out.text("coloured line", GOLD);   // PLAIN, GOLD, GOOD, BAD, DIM
+out.heading("A SECTION");
+out.gap();
+
+Table t = out.table("Number", "Name", "Lv.", "Exp.");
+t.row(level &gt;= 40).cell(866).cell("Guard").cell(40).cell(46.7);</code></pre>
+
+<p><code>row(boolean)</code> is the tip.it judgment: <code>true</code> draws
+the row green (you can do this now), <code>false</code> red (not yet); plain
+<code>row()</code> is neutral. Number cells right-align themselves.
+<code>xpForLevel(level)</code> / <code>levelForXp(xp)</code> are the authentic
+experience curve; <code>comma(n)</code> formats big numbers.</p>
+
+<div class="tip"><code>compute()</code> runs on the render thread — keep it
+fast. If it throws, the error is drawn where the answers would have been, so
+a broken calculator tells on itself instead of showing stale numbers.</div>
+
+<h2>Keys</h2>
+
+<p>While a calculator is open the keyboard belongs to it — typing a level does
+not also type into chat. Escape backs out one layer at a time (dropdown,
+field, calculator, picker, script menu); F2 drops straight back to the
+game.</p>
+
+<h2>Read next</h2>
+
+<p>The shipped set in <code>calculators/</code> covers all the classic tip.it
+calculators — <code>Experience.java</code> is the simplest read,
+<code>CombatLevel.java</code> and <code>MaxMeleeHit.java</code> compute with
+the server's own formulas. The author-facing reference is
+<a href="../../calculators/README.md"><code>calculators/README.md</code></a>.</p>
+
+</body>
+</html>

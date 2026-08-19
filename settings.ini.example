@@ -1,0 +1,62 @@
+# Desktop client configuration.
+#
+# Copy this file to settings.ini next to the jar. settings.ini itself is not
+# tracked, because the client writes your own choices into it.
+#
+# Read by Config.initConfig(String) at startup; pass an alternate path as the
+# first argument to main(). Every key can be overridden with a system property
+# (rscd.server, rscd.port, rscd.conf, rscd.media, rscd.scripts,
+# rscd.calculators, rscd.web, rscd.cacheurl, rscd.api, rscd.target) so a
+# launcher can repoint the client without rewriting this file.
+#
+# The client writes to this file when you pick a server or change a favorite
+# on the Worlds screen. It rewrites only the line it is changing, so comments,
+# ordering and anything you add by hand are left alone.
+
+# Fallback server, used when no server has been chosen on the Worlds screen.
+server = 127.0.0.1
+port = 43594
+
+# Host shown on the login screen ("For support please visit ...") when the
+# chosen server does not supply its own support line.
+web = rscd-community.org
+
+cache_url = https://rscd-community.org/cache_data
+
+config_dir = conf/client
+media_dir = media
+movie_fps = 5
+
+# The community world list.
+#
+# This is a plain JSON document fetched over HTTP with no credentials, and it
+# is a setting rather than a constant on purpose: whoever runs the client
+# decides where its server list comes from. Point it somewhere else and the
+# Worlds screen lists whatever is there.
+api_url = https://api.rscd-community.org/worlds.json
+
+# Written by the client. The server you last chose to play on, as host:port,
+# together with the parts of its listing worth keeping so the client can go
+# straight to its sign-in screen without waiting on the world list.
+#
+# Empty means you have never joined anything, which is what sends a fresh
+# install to the Worlds screen instead of a sign-in box. No server is
+# preselected here, including ours.
+default_server=
+default_server_name=
+default_server_cache=
+default_server_welcome1=
+default_server_welcome2=
+
+# Written by the client. Set once you have opened the script menu. Until then
+# the welcome box you get on login tells you that F2 opens it -- there is
+# nothing else on screen that would ever tell you. Delete this line, or set it
+# back to false, to be reminded again.
+seen_script_menu=false
+
+# Written by the client. Servers you have starred, by their registry id,
+# comma separated. Kept here rather than on the registry so that nobody --
+# including us -- can reorder or clear your list.
+favorites=
+
+fog=true

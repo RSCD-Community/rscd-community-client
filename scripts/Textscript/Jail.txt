@@ -1,0 +1,42 @@
+[start]
+autologin(true)
+setvarbygetinput(#FightMode#,What combat mode do you want to use?)
+setvarbygetinput(#del#,What macro delay do you want to use?)
+setvarbygetinput(#level#,What level do you wish to stop at?)
+setfightmode(#FightMode#)
+lockmode(#FightMode#)
+display(@ran@Im Suicidal Jailguard Deathtrainer by- Spix reinet.co.uk)
+display(Start at Jail Guards)
+display(Make sure you have a sleeping bag!)
+startscanformods()
+goto([main])
+
+[main]
+gotoifatcoords(120,648,[deathwalk])
+setfightmode(#FightMode#)
+sleep(95)
+gotoifnonpcnear(127,[walkbacker])
+attacknpcbyid(127)
+wait(500) 
+goto([main])
+
+[walkbacker]
+gotoifnotincombat([walkbacker2])
+wait(500)
+goto([main])
+
+[walkbacker2]
+walkto(195,632)
+wait(500)
+goto([main])
+
+[deathwalk]
+display(@blu@WOOT! I COMMITED SUICIDE LETS DO IT AGAIN!)
+walktowait(135,645)
+walktowait(146,641)
+walktowait(156,640)
+walktowait(165,635)
+walktowait(185,635)
+walktowait(195,633)
+gotoifatcoords(195,632,[main])
+goto([main])

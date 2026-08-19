@@ -1,0 +1,56 @@
+[main]
+autologin(true)
+display(@cya@Wheat Picker @bla@-- @cya@By: @ran@jarett19)
+display(tyvm true for the help!!)
+display(@mag@Please start in middle of west varrock bank!)
+display(:::::Happy harvesting:::::)
+startscanformods()
+goto([start])
+
+[start]
+walktowait(150,506)
+walktowait(150,507)
+walktowait(157,509)
+speak(@ora@now where did i plant that pot again?)
+walktowait(156,519)
+walktowait(154,531)
+speak(@ora@dam popo better notta' busted my stash!)
+walktowait(147,541)
+walktowait(127,555)
+speak(@ora@pigs are lucky it's still there =p)
+walktowait(127,558)
+walktowait(128,558)
+
+[pick]
+atobjectbyid2(72)
+wait(500)
+gotoifinvfull([tobank])
+goto([pick])
+
+[tobank]
+walktowait(126,558)
+speak(@ora@five oh! five oh! boot it bietch!)
+walktowait(136,548)
+speak(@ora@piggy want a donut?)
+walktowait(148,539)
+walktowait(153,536)
+walktowait(156,524)
+walktowait(156,509)
+walktowait(150,507)
+speak(@ora@this is a stick up! Gimme' yo money bankuh'!)
+walktowait(150,506)
+goto([banker])
+
+[banker]
+talktonpc(95)
+wait(6000)
+answer(0)
+wait(6000)
+goto([deposit])
+
+
+[deposit]
+wait(500)
+deposit(29,1)
+gotoifitemcountinvis(29,0,[start])
+goto([deposit])

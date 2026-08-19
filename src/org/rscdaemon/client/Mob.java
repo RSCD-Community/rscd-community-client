@@ -1,0 +1,40 @@
+package org.rscdaemon.client;
+
+final class Mob {
+   public int admin;
+   public long nameLong;
+   public String name;
+   public int serverIndex;
+   public int mobIntUnknown;
+   public int currentX;
+   public int currentY;
+   public int type;
+   public int stepCount;
+   public int currentSprite;
+   public int nextSprite;
+   public int waypointEndSprite;
+   public int waypointCurrent;
+   public int[] waypointsX = new int[10];
+   public int[] waypointsY = new int[10];
+   public int[] animationCount = new int[12];
+   public String lastMessage;
+   public int lastMessageTimeout;
+   public int bubbleItem;
+   public int bubbleTimeout;
+   public int damageTaken;
+   public int hitPointsCurrent;
+   public int hitPointsBase;
+   public int combatTimer;
+   public int level = -1;
+   public int colourHairType;
+   public int colourTopType;
+   public int colourBottomType;
+   public int colourSkinType;
+   public int attackingCameraInt;
+   public int attackingMobIndex;
+   public int attackingNpcIndex;
+   public int projectileCountdown;
+   public boolean unusedBool = false;
+   public int unusedInt = -1;
+   public int skullVisible;
+}

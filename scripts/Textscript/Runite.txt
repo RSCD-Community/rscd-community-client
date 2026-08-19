@@ -1,0 +1,34 @@
+|--start from edge bank
+
+[settings]
+display(@cya@Runite rock taxi by Old Chris)
+goto([main])
+
+[main]
+walktowait(215,450)
+walktowait(204,441)
+walktowait(191,431)
+walktowait(189,419)
+walktowait(189,397)
+walktowait(189,380)
+walktowait(189,365)
+walktowait(189,350)
+walktowait(189,345)
+walktowait(200,330)
+walktowait(200,320)
+walktowait(200,305)
+walktowait(200,290)
+walktowait(200,275)
+walktowait(200,263)
+walktowait(200,245)
+walktowait(200,235)
+walktowait(200,222)
+walktowait(200,196)
+walktowait(200,185)
+walktowait(202,175)
+walktowait(204,162)
+walktowait(231,155)
+goto([text])
+
+[text]
+end(@cya@You have just arrived to runite 

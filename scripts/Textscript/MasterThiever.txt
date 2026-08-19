@@ -1,0 +1,355 @@
+|==================|
+| !MASTER THIEVER! |
+| --Version  1.0-- |
+|Start in Ard. Bank|
+|==================|
+| © Jimmie (Hello2u)
+
+[settings]
+autologin(true)
+display(@lre@Master Thiever!)
+display(@lre@Version 1.0)
+display(@lre@By Jimmie)
+startscanformods()
+goto([npcmain1])
+
+[npcmain1]
+display(@lre@Master Thiever! Version 1.0!)
+display(@lre@NPC thiever!)
+setvarbygetinput(#task2#,Thieve from: 1-guards 2-warriors 3-paladins 4-heros)
+goto([npcmain2])
+
+[npcmain2]
+gotoifequals(#task2#,1,[guardmain1])
+gotoifequals(#task2#,2,[warriormain1])
+gotoifequals(#task2#,3,[paladinmain1])
+gotoifequals(#task2#,4,[heromain1])
+goto([npcmain2])
+
+[guardmain1]
+display(@lre@Master Thiever! Version 1.0)
+display(@lre@Thieving Guards!)
+setvarbygetinput(#guardfoodid#,What food would you like to use?)
+setvarbygetinput(#guardmaxlvl#,What thieving level would you like to stop at?)
+setvarbygetinput(#guardheal#,What HP level would you like to eat at?)
+display(@lre@ Using food:"#guardfoodid#". Stopping at "#guardmaxlvl#" thieving)
+goto([guardmain2])
+
+[guardmain2]
+display(@lre@Walking to guards...)
+walktowait(548,613)
+walktowait(547,605)
+forcewalktowait(548,594)
+display(@lre@Arrived at guards...)
+goto([guardmain3])
+
+[guardmain3]
+sleep(90)
+gotoifsleeping([guardsleeping])
+gotoifitemcountinvunder(#guardfoodid#,1,[guardmain4])
+gotoifequals(#guardmaxlvl#,$maxthievinglvl$,[endscript])
+gotoifunder($curhitslvl$,#guardheal#,[guardeat])
+thievenpc(65)
+wait(300)
+gotoifincombat([guardincombat])
+goto([guardmain3])
+
+[guardmain4]
+display(@lre@Walking to bank...)
+walktowait(547,605)
+walktowait(548,613)
+forcewalktowait(551,612)
+display(@lre@Arrived at bank...)
+goto([guardbank1])
+
+[guardbank1]
+talktonpc(95)
+wait(2000)
+gotoifquestmenu([guardbank2])
+goto([guardbank1])
+
+[guardbank2]
+answer(0)
+wait(8000)
+goto([guardbank3])
+
+[guardbank3]
+withdraw(#guardfoodid#,1)
+wait(300)
+gotoifinvfull([guardmain2])
+goto([guardbank3])
+
+[guardsleeping]
+wait(300)
+gotoifsleeping([guardsleeping])
+goto([guardmain3])
+
+[guardeat]
+gotoifitemcountinvunder(#guardfoodid#,1,[guardmain4])
+useitem(#guardfoodid#)
+wait(300)
+gotoifunder($curhitslvl$,#guardheal#,[guardeat])
+goto([guardmain3])
+
+[guardincombat]
+forcewalktowait($xcoord$,$ycoord$)
+wait(500)
+gotoifincombat([guardincombat])
+goto([guardmain3])
+
+[warriormain1]
+display(@lre@Master Thiever! Version 1.0)
+display(@lre@Thieving Warriors!)
+setvarbygetinput(#warriorfoodid#,What food would you like to use?)
+setvarbygetinput(#warriormaxlvl#,What thieving level would you like to stop at?)
+setvarbygetinput(#warriorheal#,What HP level would you like to heal at?)
+display(@lre@ Using food:"#warriorfoodid#". Stopping at:"#warriormaxlvl#" thieving)
+goto([warriormain2])
+
+[warriormain2]
+display(@lre@Walking to warriors...)
+walktowait(550,612)
+walktowait(550,607)
+walktowait(562,605)
+walktowait(573,606)
+walktowait(585,604)
+walktowait(596,603)
+forcewalktowait(603,603)
+display(@lre@Arrived at warriors...)
+goto([warriormain3])
+
+[warriormain3]
+sleep(90)
+gotoifsleeping([warriorsleeping])
+gotoifitemcountinvunder(#warriorfoodid#,1,[warriormain4])
+gotoifequals(#warriormaxlvl#,$maxthievinglvl$,[endscript])
+gotoifunder($curhitslvl$,#warriorheal#,[warrioreat])
+thievenpc(320)
+wait(300)
+gotoifincombat([warriorincombat])
+goto([warriormain3])
+
+[warriormain4]
+display(@lre@Walking to bank...)
+walktowait(596,603)
+walktowait(585,604)
+walktowait(573,606)
+walktowait(562,605)
+walktowait(550,607)
+walktowait(550,612)
+forcewalktowait(551,612)
+display(@lre@Arrived at bank...)
+goto([warriorbank1])
+
+[warriorbank1]
+talktonpc(95)
+wait(2000)
+gotoifquestmenu([warriorbank2])
+goto([warriorbank1])
+
+[warriorbank2]
+answer(0)
+wait(8000)
+goto([warriorbank3])
+
+[warriorbank3]
+withdraw(#warriorfoodid#,1)
+wait(300)
+gotoifinvfull([warriormain2])
+goto([warriorbank3])
+
+[warriorsleeping]
+wait(300)
+gotoifsleeping([warriorsleeping])
+goto([warriormain3])
+
+[warrioreat]
+gotoifitemcountinvunder(#warriorfoodid#,1,[warriormain4])
+useitem(#warriorfoodid#)
+wait(300)
+gotoifunder($curhitslvl$,#warriorheal#,[warrioreat])
+goto([warriormain3])
+
+[warriorincombat]
+forcewalktowait($xcoord$,$ycoord$)
+wait(500)
+gotoifincombat([warriorincombat])
+goto([warriormain3])
+
+[paladinmain1]
+display(@lre@Master Thiever! Version 1.0)
+display(@lre@Thieving Paladins!)
+setvarbygetinput(#paladinfoodid#,What food would you like to use?)
+setvarbygetinput(#paladinmaxlvl#,What thieving level would you like to stop at?)
+setvarbygetinput(#paladinheal#,What HP level would you like to heal at?)
+display(@lre@ Using food:"#paladinfoodid#". Stopping at:"#paladinmaxlvl#" thieving)
+goto([paladinmain2])
+
+[paladinmain2]
+display(@lre@Walking to paladins...)
+walktowait(550,612)
+walktowait(550,607)
+walktowait(562,605)
+walktowait(573,606)
+walktowait(585,604)
+walktowait(596,603)
+walktowait(603,603)
+forcewalktowait(608,604)
+display(@lre@Arrived at paladins...)
+goto([paladinmain3])
+
+[paladinmain3]
+sleep(90)
+gotoifsleeping([paladinsleeping])
+gotoifitemcountinvunder(#paladinfoodid#,1,[paladinmain4])
+gotoifequals(#paladinmaxlvl#,$maxthievinglvl$,[endscript])
+gotoifunder($curhitslvl$,#paladinheal#,[paladineat])
+thievenpc(323)
+wait(300)
+gotoifincombat([paladinincombat])
+goto([paladinmain3])
+
+[paladinmain4]
+display(@lre@Walking to bank...)
+walktowait(608,604)
+walktowait(596,603)
+walktowait(585,604)
+walktowait(573,606)
+walktowait(562,605)
+walktowait(550,607)
+walktowait(550,612)
+forcewalktowait(551,612)
+display(@lre@Arrived at bank...)
+goto([paladinbank1])
+
+[paladinbank1]
+talktonpc(95)
+wait(2000)
+gotoifquestmenu([paladinbank2])
+goto([paladinbank1])
+
+[paladinbank2]
+answer(0)
+wait(8000)
+goto([paladinbank3])
+
+[paladinbank3]
+withdraw(#paladinfoodid#,1)
+wait(300)
+gotoifinvfull([paladinmain1])
+goto([paladinbank3])
+
+[paladinsleeping]
+wait(300)
+gotoifsleeping([paladinsleeping])
+goto([paladinmain3])
+
+[paladineat]
+gotoifitemcountinvunder(#paladinfoodid#,1,[paladinmain4])
+useitem(#paladinfoodid#)
+wait(300)
+gotoifunder($curhitslvl$,#paladinheal#,[paladineat])
+goto([paladinmain3])
+
+[paladinincombat]
+forcewalktowait($xcoord$,$ycoord$)
+wait(500)
+gotoifincombat([paladinincombat])
+goto([paladinmain3])
+
+[heromain1]
+display(@lre@Master Thiever! Version 1.0)
+display(@lre@Thieving Heros!)
+setvarbygetinput(#herofoodid#,What food would you like to use?)
+setvarbygetinput(#heromaxlvl#,What thieving level would you like to stop at?)
+setvarbygetinput(#heroheal#,What HP level would you like to heal at?)
+display(@lre@ Using food:"#herofoodid#". Stopping at:"#heromaxlvl#" thieving)
+goto([heromain2])
+
+[heromain2]
+display(@lre@Walking to heros...)
+walktowait(548,613)
+walktowait(547,605)
+forcewalktowait(539,596)
+display(@lre@Arrived at heros...)
+goto([heromain3])
+
+[heromain3]
+gotoifsleeping([herosleeping])
+gotoifitemcountinvunder(#herofoodid#,1,[heromain4])
+gotoifequals(#heromaxlvl#,$maxthievinglvl$,[endscript])
+gotoifunder($curhitslvl$,#heroheal#,[heroeat])
+thievenpc(324)
+wait(300)
+gotoifincombat([heroincombat])
+gotoifitemcountinvover(612,0,[herodrop1])
+gotoifitemcountinvover(152,0,[herodrop2])
+gotoifitemcountinvover(142,0,[herodrop3])
+goto([heromain3])
+
+[heromain4]
+display(@lre@Walking to bank...)
+walktowait(539,596)
+walktowait(547,605)
+walktowait(548,613)
+forcewalktowait(551,612)
+display(@lre@Arrived at bank...)
+goto([herobank1])
+
+[herobank1]
+talktonpc(95)
+wait(2000)
+gotoifquestmenu([herobank2])
+goto([herobank1])
+
+[herobank2]
+answer(0)
+wait(8000)
+goto([herobank3])
+
+[herobank3]
+withdraw(#herofoodid#,1)
+wait(300)
+gotoifinvfull([heromain1])
+goto([herobank3])
+
+[herosleeping]
+wait(300)
+gotoifsleeping([herosleeping])
+goto([heromain3])
+
+[heroeat]
+gotoifitemcountinvunder(#herofoodid#,1,[heromain4])
+useitem(#herofoodid#)
+wait(300)
+gotoifunder($curhitslvl$,#heroheal#,[paladineat])
+goto([heromain3])
+
+[heroincombat]
+forcewalktowait($xcoord$,$ycoord$)
+wait(500)
+gotoifincombat([heroincombat])
+goto([heromain3])
+
+[herodrop1]
+dropitem(612)
+wait(200)
+gotoifitemcountinvover(612,0,[herodrop1])
+goto([heromain3])
+
+[herodrop2]
+dropitem(152)
+wait(200)
+gotoifitemcountinvover(152,0,[herodrop2])
+goto([heromain3])
+
+[herodrop3]
+dropitem(142)
+wait(200)
+gotoifitemcountinvover(142,0,[herodrop3])
+goto([heromain3])
+
+[endscript]
+display(@lre@You have reached your desired thieving level!)
+wait(5000)
+die()

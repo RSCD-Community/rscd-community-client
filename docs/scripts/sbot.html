@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBoT scripts — the fourth tier</title>
+<style>
+body{max-width:52rem;margin:2rem auto;padding:0 1rem;font:16px/1.6 Georgia,serif;background:#f6f2e8;color:#2b2417}
+h1,h2,h3{font-family:Verdana,sans-serif;color:#5c3d10}
+h1{border-bottom:3px double #b8a06a;padding-bottom:.3rem}
+h2{border-bottom:1px solid #d8c9a3;padding-bottom:.2rem;margin-top:2.2rem}
+code,pre{font:14px/1.5 Consolas,Menlo,monospace;background:#efe7d2;border-radius:3px}
+code{padding:.05rem .3rem}
+pre{padding:.8rem 1rem;overflow-x:auto;border:1px solid #d8c9a3}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:1rem 0}
+th,td{border:1px solid #d8c9a3;padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#efe7d2;font-family:Verdana,sans-serif;font-size:14px}
+a{color:#7a4a12}
+.tip{background:#fdf6dd;border-left:4px solid #c9a227;padding:.6rem 1rem;margin:1rem 0}
+</style>
+</head>
+<body>
+
+<p><a href="index.html">&larr; all scripting tiers</a></p>
+
+<h1>SBoT scripts</h1>
+
+<p>SBoT was RichyT's bot — not related to STS, TextScript or APOS, with its
+own script shape: a script <em>declares the chat commands it answers to</em>,
+and is handed whichever one the player typed. Scripts go in
+<code>scripts/SBoT/</code>.</p>
+
+<h2>The shape</h2>
+
+<pre><code>public class Test extends Script
+{
+    public Test(mudclient rs) { super(rs); }
+
+    public String[] getCommands()
+    {
+        return new String[]{"test"};
+    }
+
+    public void start(String command, String[] param)
+    {
+        while (Running())
+        {
+            DisplayMessage("Test", 3);
+            Wait(2000);
+        }
+    }
+}</code></pre>
+
+<ul>
+<li><code>getCommands()</code> — the names this script answers to. One class
+can serve several commands and branch on which arrived.</li>
+<li><code>start(command, params)</code> — the script body;
+<code>/start test(a,b)</code> arrives as <code>command="test"</code>,
+<code>param={"a","b"}</code>. Loop on <code>Running()</code>, wait with
+<code>Wait(ms)</code>, exactly like STS.</li>
+<li>Inside the class, <code>Script</code> means the SBoT base — the loader
+stages it so the historical <code>extends Script</code> line compiles
+unchanged in this folder.</li>
+</ul>
+
+<h2>The API — SBoT's names and STS's, both</h2>
+
+<p>SBoT's API is a renaming of a subset of STS's. Reines shipped an SBoT
+emulator with STS — a table mapping about 170 SBoT method names onto STS ones —
+and that mapping is ported faithfully in
+<a href="../../src/org/rscdaemon/client/sbot/SBotScript.java"><code>SBotScript.java</code></a>,
+including the deprecated stubs: a script that calls <code>PlayerAt()</code>
+gets his "deprecated" message, not a compile error. Because the base extends
+<code>Methods</code>, everything on the <a href="sts.html">STS surface</a>
+works in an SBoT script too — both names are live.</p>
+
+<div class="tip"><strong>Reines's own warning still applies</strong>, argument
+order on one call differs between the two worlds:
+<pre style="margin:.5rem 0 0">SBoT:  UseOnObject(int x, int y, int item)
+here:  UseOnObject(int item, int x, int y)</pre></div>
+
+<h2>Why the host is new even though the API is old</h2>
+
+<p>The original SBoT host could not be ported: it stopped scripts with
+<code>Thread.stop()</code> (throws on JDK 20+), found them with
+<code>Class.forName()</code> (classpath only, not a folder), and looked in
+whatever directory the file manager happened to be in. <code>ScriptRunner</code>
+does that job the same way it does for the other tiers — compiles the folder,
+loads through its own class loader, stops cooperatively via
+<code>Running()</code>.</p>
+
+<h2>Read next</h2>
+
+<p><code>scripts/SBoT/Test.java</code> is the shipped example.
+<code>SBotScript.java</code> documents every mapped name. For new work, the
+<a href="sts.html">STS tier</a> is the same power with the richer surface.</p>
+
+</body>
+</html>

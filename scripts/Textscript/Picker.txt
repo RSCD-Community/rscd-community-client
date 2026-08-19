@@ -1,0 +1,9 @@
+[main]
+autologin(true)
+display(@ran@Anything Picker)
+goto([pickup])
+
+[pickup]
+pickupitembyid(441)
+wait(350)
+goto([pickup])

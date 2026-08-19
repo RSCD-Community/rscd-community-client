@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TextScript — scripting without Java</title>
+<style>
+body{max-width:52rem;margin:2rem auto;padding:0 1rem;font:16px/1.6 Georgia,serif;background:#f6f2e8;color:#2b2417}
+h1,h2,h3{font-family:Verdana,sans-serif;color:#5c3d10}
+h1{border-bottom:3px double #b8a06a;padding-bottom:.3rem}
+h2{border-bottom:1px solid #d8c9a3;padding-bottom:.2rem;margin-top:2.2rem}
+code,pre{font:14px/1.5 Consolas,Menlo,monospace;background:#efe7d2;border-radius:3px}
+code{padding:.05rem .3rem}
+pre{padding:.8rem 1rem;overflow-x:auto;border:1px solid #d8c9a3}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:1rem 0}
+th,td{border:1px solid #d8c9a3;padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#efe7d2;font-family:Verdana,sans-serif;font-size:14px}
+a{color:#7a4a12}
+.tip{background:#fdf6dd;border-left:4px solid #c9a227;padding:.6rem 1rem;margin:1rem 0}
+</style>
+</head>
+<body>
+
+<p><a href="index.html">&larr; all scripting tiers</a></p>
+
+<h1>TextScript</h1>
+
+<p>The no-programming tier. A TextScript is a plain <code>.txt</code> file of
+labelled blocks, one command per line — no Java, no classes, no compiling.
+This is why the script folders of a 2006 install are full of files written by
+people who never wrote a line of code, and all eleven scripts that survive
+from that era run here untouched.</p>
+
+<h2>Quick start</h2>
+
+<p>Save this as <code>scripts/Textscript/Picker.txt</code> and type
+<code>/start Picker</code>:</p>
+
+<pre><code>[main]
+autologin(true)
+display(@ran@Anything Picker)
+goto([pickup])
+
+[pickup]
+pickupitembyid(441)
+wait(350)
+goto([pickup])</code></pre>
+
+<p>That is a complete, real script — it picks up every item with id 441 it can
+see, forever, until <code>/stop</code>.</p>
+
+<h2>The rules</h2>
+
+<ul>
+<li><strong><code>[label]</code> is a jump target, not a scope.</strong>
+Execution starts at line 1 (not at <code>[main]</code>) and <em>falls off the
+bottom of one block into the next</em> — several surviving scripts depend on
+exactly that.</li>
+<li><strong><code>goto([label])</code></strong> jumps. The dozens of
+<code>gotoif…</code> commands jump only when their condition holds — that is
+the whole control flow.</li>
+<li><strong><code>|</code> starts a comment.</strong></li>
+<li><strong><code>#name#</code> is a variable</strong> you set with
+<code>setvar</code>; <strong><code>$name$</code> is a value read off the
+game</strong> — <code>$fatigue$</code>, <code>$hits$</code>,
+<code>$xcoord$</code>, <code>$mining$</code>, any skill by name.</li>
+<li><strong>Items are addressed by item id, never by slot.</strong>
+<code>useitem(330)</code> eats a cake wherever it sits.</li>
+<li><strong>A bad line does not kill the script.</strong> Unknown lines are
+kept in place and fail only if execution reaches them, and they are listed
+once at start-up so a real typo is still visible. (One shipped script ends
+with eighty decorative dashes; it ran for years because <code>end()</code>
+came first.)</li>
+</ul>
+
+<h2>The commands</h2>
+
+<p>The command set is the original TextScript v1.6's — <strong>131 names</strong>,
+recovered from the original's own compiled string table rather than guessed
+from surviving scripts. The authoritative list, each with its argument shape
+and a comment, is
+<a href="../../src/org/rscdaemon/client/TextScript.java"><code>TextScript.java</code></a>.
+The shape of the language in one table:</p>
+
+<table>
+<tr><th>Kind</th><th>Examples</th></tr>
+<tr><td>Doing things</td><td><code>walkto(x,y)</code> <code>attacknpcbyid(id)</code> <code>atobjectbyid(id)</code> <code>useitem(id)</code> <code>useitemwithitem(id,id)</code> <code>pickupitembyid(id)</code> <code>dropitem(id)</code> <code>wearitem(id)</code> <code>talktonpc(id)</code> <code>thievenpc(id)</code> <code>castonnpc(spell,id)</code> <code>buyitem(id,n)</code> <code>sellitem(id,n)</code> <code>deposit(id,n)</code> <code>withdraw(id,n)</code> <code>prayeron(n)</code> <code>setfightmode(n)</code></td></tr>
+<tr><td>Waiting &amp; flow</td><td><code>wait(ms)</code> <code>goto([label])</code> <code>end()</code> <code>logout()</code> <code>autologin(true)</code></td></tr>
+<tr><td>Conditions (53 of them)</td><td><code>gotoifcountinvover([label],id,n)</code> <code>gotoifatcoords([label],x,y)</code> <code>gotoifincombat([label])</code> <code>gotoifinvfull([label])</code> <code>gotoifnpcnear([label],id)</code> <code>gotoifcurstatunder([label],$mining$,n)</code> <code>gotoiflastservermsg([label],text)</code> …</td></tr>
+<tr><td>Variables &amp; input</td><td><code>setvar(#name#,value)</code> <code>setvarbyarg(#name#,n)</code> <code>setvarbygetinput(#name#,prompt)</code></td></tr>
+<tr><td>Talking to you</td><td><code>display(text)</code> <code>sysmsg(text)</code> <code>showmessage(text)</code> <code>takepic()</code></td></tr>
+</table>
+
+<div class="tip"><strong>Historical spelling is honoured.</strong> Two names
+are aliases because the original shipped both spellings in one release
+(<code>gotoifitemcountinvis</code> / <code>gotoifcountinvitemis</code>), and
+exactly one name was added: <code>gotoifnotsleeping</code>, because everybody
+typed it by accident for <code>gotoifnotisleeping</code>. Both work. Common
+alternate spellings like <code>defense</code>/<code>defence</code> and
+<code>magic</code>/<code>mage</code> are accepted for skill values.</div>
+
+<h2>Worked example</h2>
+
+<p>A coal miner that banks — the shape of nearly every gathering script:</p>
+
+<pre><code>| Coal.txt -- mine coal at the rocks, bank when full
+[mine]
+atobjectbyid(110)                    | 110 = coal rock
+wait(2000)
+gotoifinvfull([gobank])
+goto([mine])
+
+[gobank]
+walkto(220,634)                      | into the bank
+talktonpc(95)                        | 95 = banker
+wait(1500)
+answer(0)                            | "I'd like to access my bank account"
+wait(1500)
+deposit(155,100)                     | 155 = coal, all of it
+closebank()
+goto([mine])</code></pre>
+
+<h2>Read next</h2>
+
+<p><code>scripts/Textscript/</code> ships the surviving originals —
+<code>Coal.txt</code>, <code>Edge.txt</code>, <code>Jail.txt</code> and more —
+each a working answer to "how do I…". When a script outgrows
+<code>goto</code>, the next step up is an <a href="sts.html">STS script</a>:
+same ids, same world, real code.</p>
+
+</body>
+</html>

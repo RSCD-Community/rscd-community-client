@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scripting the RSCD Community Client</title>
+<style>
+body{max-width:52rem;margin:2rem auto;padding:0 1rem;font:16px/1.6 Georgia,serif;background:#f6f2e8;color:#2b2417}
+h1,h2,h3{font-family:Verdana,sans-serif;color:#5c3d10}
+h1{border-bottom:3px double #b8a06a;padding-bottom:.3rem}
+h2{border-bottom:1px solid #d8c9a3;padding-bottom:.2rem;margin-top:2.2rem}
+code,pre{font:14px/1.5 Consolas,Menlo,monospace;background:#efe7d2;border-radius:3px}
+code{padding:.05rem .3rem}
+pre{padding:.8rem 1rem;overflow-x:auto;border:1px solid #d8c9a3}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:1rem 0}
+th,td{border:1px solid #d8c9a3;padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#efe7d2;font-family:Verdana,sans-serif;font-size:14px}
+a{color:#7a4a12}
+.tip{background:#fdf6dd;border-left:4px solid #c9a227;padding:.6rem 1rem;margin:1rem 0}
+</style>
+</head>
+<body>
+
+<h1>Scripting the client</h1>
+
+<p>Scripting is a <strong>supported feature</strong> of this client, not
+something tolerated. Between 2004 and 2010 people wrote thousands of scripts
+for the bots of the day, and those bots each had their own API. This client
+runs scripts written for <strong>four</strong> of them, from the same folder,
+under the same commands — plus a fifth flavour,
+<a href="calculators.html">calculators</a>, for skill planning rather than
+playing.</p>
+
+<table>
+<tr><th>Tier</th><th>File</th><th>Looks like</th><th>Guide</th></tr>
+<tr><td><strong>STS</strong> (the native tier)</td><td><code>Name.java</code></td>
+    <td>extends <code>Methods</code>, you write <code>MainBody()</code> and own the loop</td>
+    <td><a href="sts.html">sts.html</a></td></tr>
+<tr><td><strong>TextScript</strong></td><td><code>Name.txt</code></td>
+    <td><code>[label]</code> blocks, one command per line, <em>no Java at all</em></td>
+    <td><a href="textscript.html">textscript.html</a></td></tr>
+<tr><td><strong>APOS</strong></td><td><code>Name.java</code></td>
+    <td>extends <code>Script</code>, you write <code>init()</code>/<code>main()</code>/<code>paint()</code> and the client owns the loop</td>
+    <td><a href="apos.html">apos.html</a></td></tr>
+<tr><td><strong>SBoT</strong></td><td><code>Name.java</code></td>
+    <td>extends <code>Script</code>, declares chat commands it answers to</td>
+    <td><a href="sbot.html">sbot.html</a></td></tr>
+<tr><td><strong>Calculators</strong></td><td><code>Name.java</code></td>
+    <td>extends <code>Calculator</code>, declares inputs, computes an answer — never touches the world</td>
+    <td><a href="calculators.html">calculators.html</a></td></tr>
+</table>
+
+<h2>Which one should I write?</h2>
+
+<p><strong>New scripts: write STS or TextScript.</strong> STS is the native
+tier — the richest API (260-plus methods), interactive option menus, events,
+an on-screen overlay. TextScript is the no-programming tier: if you can write
+a shopping list you can automate mining. APOS and SBoT exist so that scripts
+people still have on disk run untouched; they are complete and maintained, but
+there is no reason to start a new script against a compatibility surface.</p>
+
+<h2>Running a script</h2>
+
+<p>Drop the file into the right folder beside the jar and it appears — no
+build step, no forking the client:</p>
+
+<pre><code>scripts/STS/Miner.java        the STS tier
+scripts/Textscript/Coal.txt   TextScript
+scripts/APOS/Fisher.java      APOS
+scripts/SBoT/Test.java        SBoT
+calculators/MaxHit.java       calculators</code></pre>
+
+<p>In game:</p>
+
+<table>
+<tr><td><code>F2</code> (or <code>/menu</code>)</td><td>the script menu — pick a script, pick a calculator, settings, recorder</td></tr>
+<tr><td><code>/start Name(arg,arg)</code></td><td>start a script by name — <code>/start Miner(coal)</code>. Both argument shapes work: <code>/start Miner coal</code> too</td></tr>
+<tr><td><code>/stop</code></td><td>stop the running script</td></tr>
+<tr><td><code>/reload</code></td><td>recompile and restart after you edit the file</td></tr>
+<tr><td><code>/scripts</code></td><td>list everything the client can see (also <code>/macros</code>, the STS name)</td></tr>
+<tr><td><code>/debug</code></td><td>toggle script debug output</td></tr>
+</table>
+
+<div class="tip"><strong>The <code>/</code> plane is yours.</strong> A chat
+line starting with <code>/</code> belongs to the client and is never sent to
+the server — recognised or not. An unrecognised <code>/</code> line is offered
+to the running script's input hook first, so scripts can take their own
+commands while running.</div>
+
+<h2>How loading works (all tiers)</h2>
+
+<ul>
+<li><strong>The client compiles your source when you start it.</strong> If you
+run the client on a full JDK (the normal case — the launchers explain how to
+get one), a <code>.java</code> script is compiled in-process the moment you
+pick it. On a plain JRE, an already-compiled <code>.class</code> of the same
+name in the sibling <code>script-bin/</code> (or <code>calculators-bin/</code>)
+folder is used instead.</li>
+<li><strong>No <code>package</code> line, no imports.</strong> Script sources
+are staged with <code>import org.rscdaemon.client.*;</code> prepended. That one
+line is the whole compatibility layer — your file starts straight at
+<code>public class</code>.</li>
+<li><strong>Name collisions resolve to Java.</strong> A <code>Name.java</code>
+wins over a <code>Name.txt</code> of the same name.</li>
+<li><strong>Java tiers are told apart by their constructor.</strong> A compiled
+script whose constructor takes <code>mudclient</code> is STS (or SBoT, by its
+folder); one whose constructor takes <code>Extension</code> is APOS. That is
+the only distinction the loader needs.</li>
+</ul>
+
+<h2>Where these came from</h2>
+
+<p>The lineage is documented, not folklore. <strong>SBoT</strong> was RichyT's
+bot; <strong>STS</strong> (SkullTorchaScriptable) is the API this client
+implements natively, recovered from the STS203C release, which also shipped
+Reines's SBoT emulator — the mapping this client's SBoT tier preserves.
+<strong>TextScript v1.6</strong> was itself an STS script that interpreted
+<code>.txt</code> files, re-implemented here natively; its 131-command set was
+recovered from the original's own string table. <strong>APOS</strong> is a
+separate, later bot with an unrelated API, reimplemented from its javadoc and
+the sixteen surviving scripts. The full history, including what could not be
+honoured and why, is in <a href="../../CLIENT.md">CLIENT.md</a>.</p>
+
+<div class="tip"><strong>One warning, seriously meant:</strong> never run a
+pre-built client jar you did not build. The scripting lineage this client
+inherits from once shipped a jar with credential-stealing code in it. Build
+from source you can read — that is why the source is open.</div>
+
+</body>
+</html>

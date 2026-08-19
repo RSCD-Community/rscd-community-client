@@ -1,0 +1,445 @@
+old	new	note
+anInt162	bubbleItem	Mob
+anInt163	bubbleTimeout	Mob
+anInt164	damageTaken	Mob
+anInt176	projectileCountdown	Mob
+anInt179	skullVisible	Mob
+anInt699	bubbleCount	mudclient
+anIntArray705	bubbleScale	mudclient
+anIntArray706	bubbleItemId	mudclient
+anIntArray858	bubbleX	mudclient
+anIntArray859	bubbleY	mudclient
+attackingInt40	projectileFlightDuration	mudclient
+method2	updateGame	GameWindow (tick, 50/s)
+method4	renderFrame	GameWindow
+anInt5	catchupTickLimit	GameWindow
+anInt10	overloadCount	GameWindow
+anInt16	loadingPercent	GameWindow
+method358	getEntryOffset	DataOperations (.jag directory)
+method359	getEntrySize	DataOperations
+method245	drawSceneSprite	GameImage/GameImageMiddleMan/Camera
+method45	drawNpc	mudclient
+method52	drawPlayer	mudclient
+method68	drawGroundItem	mudclient
+method71	drawTeleportBubble	mudclient
+anIntArray782	teleBubbleType	mudclient (0=teleport,1=telegrab)
+anIntArray923	teleBubbleTime	mudclient
+anInt456	mtfArraySize	DataFileVariables/bzlib MTFA_SIZE (4096)
+anInt457	mtfSubArraySize	DataFileVariables/bzlib MTFL_SIZE (16)
+anInt458	maxAlphaSize	DataFileVariables/bzlib MAX_ALPHA_SIZE (258)
+anInt459	maxCodeLength	DataFileVariables/bzlib MAX_CODE_LEN (23)
+anInt460	runBSymbol	DataFileVariables/bzlib BZ_RUNB (1)
+anInt461	maxHuffmanGroups	DataFileVariables/bzlib BZ_N_GROUPS (6)
+anInt462	symbolsPerGroup	DataFileVariables/bzlib BZ_G_SIZE (50)
+anInt463	huffmanIterations	DataFileVariables/bzlib BZ_N_ITERS (4)
+anInt464	maxSelectors	DataFileVariables/bzlib BZ_MAX_SELECTORS (18002)
+aByteArray465	inputBuffer	DataFileVariables/compressed input (next_in)
+anInt466	inputOffset	DataFileVariables/read cursor into inputBuffer
+anInt467	inputRemaining	DataFileVariables/avail_in
+anInt468	totalInLo32	DataFileVariables/bytes consumed, low 32
+anInt469	totalInHi32	DataFileVariables/bytes consumed, high 32
+aByteArray470	outputBuffer	DataFileVariables/decompressed output (next_out)
+anInt471	outputOffset	DataFileVariables/write cursor into outputBuffer
+anInt472	outputRemaining	DataFileVariables/avail_out
+anInt473	totalOutLo32	DataFileVariables/bytes produced, low 32
+anInt474	totalOutHi32	DataFileVariables/bytes produced, high 32
+aByte475	stateOutCh	DataFileVariables/RLE output stage current byte (su_ch)
+anInt476	stateOutLen	DataFileVariables/RLE output stage pending run length
+aBoolean477	blockRandomised	DataFileVariables/block randomised flag (unsupported, prints PANIC)
+anInt478	bitBuffer	DataFileVariables/bit reservoir (bsBuff)
+anInt479	bitCount	DataFileVariables/bits valid in bitBuffer (bsLive)
+anInt480	blockSize100k	DataFileVariables/always 1 = "BZh1" level
+anInt481	currentBlock	DataFileVariables/block counter (currBlockNo)
+anInt482	origPtr	DataFileVariables/BWT start row from block header
+anInt483	tPos	DataFileVariables/current position in the BWT walk
+anInt484	lastDecodedByte	DataFileVariables/RLE comparison byte (su_k0)
+anIntArray485	bwtByteCounts	DataFileVariables/per-byte frequencies (unzftab)
+anInt486	blockBytesUsed	DataFileVariables/bytes taken from block (nblock_used)
+anIntArray487	cumulativeByteCounts	DataFileVariables/cftab
+anIntArray488	cumulativeByteCountsCopy	DataFileVariables/cftabCopy, unused here
+anIntArray489	bwtBuffer	DataFileVariables/tt array, byte + 24-bit successor link
+anInt490	symbolsUsed	DataFileVariables/nInUse
+aBooleanArray491	symbolInUse	DataFileVariables/inUse[256]
+aBooleanArray492	symbolRangeInUse	DataFileVariables/inUse16
+aByteArray493	symbolMap	DataFileVariables/seqToUnseq
+aByteArray494	mtfSymbols	DataFileVariables/sliding MTF list (mtfa)
+anIntArray495	mtfBase	DataFileVariables/cell offsets into mtfSymbols
+aByteArray496	huffmanSelectors	DataFileVariables/selector
+aByteArray497	huffmanSelectorsMtf	DataFileVariables/selectorMtf
+aByteArrayArray498	huffmanCodeLengths	DataFileVariables/len[group][symbol]
+anIntArrayArray499	huffmanLimits	DataFileVariables/limit tables
+anIntArrayArray500	huffmanBases	DataFileVariables/base tables
+anIntArrayArray501	huffmanPerms	DataFileVariables/perm tables
+anIntArray502	huffmanMinLengths	DataFileVariables/minLens per group
+anInt503	blockLength	DataFileVariables/decoded block size (save_nblock)
+method130	unRunLength	DataFileDecrypter/final RLE stage, unRLE_obuf_to_output
+method131	decompressStream	DataFileDecrypter/main per-block decode loop
+method132	readByte	DataFileDecrypter/bsGetUChar
+method133	readBit	DataFileDecrypter/1-bit read
+method134	readBits	DataFileDecrypter/bsR(n)
+method135	buildSymbolMap	DataFileDecrypter/makeMaps
+method136	buildHuffmanDecodeTables	DataFileDecrypter/hbCreateDecodeTables
+anIntArray521	(deleted)	PacketConstruction: unused bit-mask table, dead decompiler artifact
+anInt522..anInt533	(deleted)	PacketConstruction: twelve unread final char-code ints, dead
+aCharArray536	(deleted)	PacketConstruction: char remap table filled in static block but never read, dead
+anInt543	(deleted)	PacketConstruction: unread public static int, dead
+anInt353	minScreenX	CameraModel: projected bounding box min screen x
+anInt354	minScreenY	CameraModel: projected bounding box min screen y
+anInt355	maxScreenX	CameraModel: projected bounding box max screen x
+anInt356	maxScreenY	CameraModel: projected bounding box max screen y
+anInt357	minDepth	CameraModel: view-space depth range min
+anInt358	maxDepth	CameraModel: view-space depth range max
+aModel_359	model	CameraModel: model the queued face belongs to
+anInt360	faceIndex	CameraModel: face index within the model
+anInt361	depth	CameraModel: average vertex depth, key for the depth sort
+anInt362	normalX	CameraModel: face normal x (view space)
+anInt363	normalY	CameraModel: face normal y
+anInt364	normalZ	CameraModel: face normal z
+anInt365	visibility	CameraModel: normal dot first vertex; sign picks front/back fill
+anInt366	faceFill	CameraModel: fill colour/texture id for the visible side
+aBoolean367	ordered	CameraModel: face already checked by overlap-correction pass
+anInt368	index	CameraModel: position when the overlap pass started
+anInt369	lastSwapIndex	CameraModel: face last reordered against, stops swap loops
+aByteArrayArray336	fontData	GameImage SEAM: per-font glyph headers+bitmaps written by loadFont
+anIntArray339	sinCosCache	GameImage: sin [0..255] / cos [256..511] scaled 32768
+anIntArray340	scanlineStartX	GameImage: rotated-sprite raster, left edge screen x per scanline
+anIntArray341	scanlineEndX	GameImage: right edge screen x per scanline
+anIntArray342	scanlineStartU	GameImage: sprite u at left edge
+anIntArray343	scanlineEndU	GameImage: sprite u at right edge
+anIntArray344	scanlineStartV	GameImage: sprite v at left edge
+anIntArray345	scanlineEndV	GameImage: sprite v at right edge
+anInt346	spriteRotationMatchCount	GameImage static, also mudclient: minimap tamper-check agree counter
+anInt347	spriteRotationMismatchCount	GameImage static, also mudclient: minimap tamper-check disagree counter
+anInt348	lastSpriteRotation	GameImage: rotation of last scale-128 (compass) minimap draw
+aBooleanArray349	fontAntialiased	GameImage SEAM: font has grey pixels, drawn alpha-blended, no shadow
+anInt350	fontDataOffset	GameImage SEAM: write cursor into fontDataBuffer during loadFont
+aByteArray351	fontDataBuffer	GameImage SEAM: scratch buffer loadFont builds each font in
+method211	clearScreen	GameImage, callers mudclient+EngineHandle: blank the framebuffer, interlace-aware
+method212	drawCircle	GameImage, caller mudclient: filled circle with alpha
+method214	drawGradientBox	GameImage, caller Menu: vertical two-colour gradient fill
+method221	blurRegion	GameImage, caller mudclient: box blur over a region
+method232	drawSpriteAlpha	GameImage, callers mudclient+Menu: sprite draw with alpha blend
+method235	plotSprite	GameImage: opaque sprite plot, 0 = transparent, 4x unrolled
+method238	plotSpriteAlpha	GameImage: sprite plot alpha-blended against framebuffer
+method242	drawMinimapSprite	GameImage, caller mudclient: rotated+scaled sprite (minimap/compass)
+method243	plotRotatedScanline	GameImage: rotated raster scanline, every pixel written
+method244	plotRotatedScanlineTransparent	GameImage: rotated raster scanline, 0 skipped
+method257	drawCharacter	GameImage: draw one glyph from fontData
+method259	plotLetterAlpha	GameImage: glyph plot for antialiased fonts, 8-bit coverage blend
+method261	fontHeight	GameImage: line height from fontData byte 8
+method400	resolveSectorEdgeOverlays	EngineHandle: overlay 250 at sector seams -> water(2) or 9
+method401	loadArea	EngineHandle: public region-load entry; called from mudclient
+method402	setVertexAmbience	EngineHandle: finds vertex in terrain sub-model, sets shade
+method403	raiseWallElevation	EngineHandle: adds 80000+wallHeight markers into elevationMap
+method407	updateShadows	EngineHandle: 0-or-35 shade per tile from wall/object collision bits
+method408	registerDoorCollision	EngineHandle: OR door bits into walkableValue; called from mudclient
+method409	buildLandscape	EngineHandle: builds terrain/wall/roof models for one plane
+method412	registerObjectCollision	EngineHandle: OR object bits into walkableValue; called from mudclient
+method413	drawMinimapTile	EngineHandle: paints 3x3 minimap pixels, split by diagonal
+method416	hasNeighbouringRoof	EngineHandle: any of 4 tiles around vertex roofed (eaves overhang)
+method419	setTileAmbience	EngineHandle: routes tile shade to up to 4 terrain sub-models
+method421	buildWall	EngineHandle: adds one wall quad to the landscape model
+method424	isFullyRoofed	EngineHandle: all 4 tiles around vertex roofed (raises roof interior)
+method427	getOverlayBlendType	EngineHandle: -1 none / 1 type-2 overlay / 0 other, for edge blending
+method428	placeMapObjects	EngineHandle: diagonalWalls 48001+id -> real models; called from mudclient
+aModelArrayArray580	wallModels	EngineHandle [4][64]; mudclient toggles upper storeys
+anIntArrayArray581	elevationMap	EngineHandle: corner elevations, +80000 wall-top flag during roof build
+aModelArray596	terrainModels	EngineHandle: 8x8 split of ground; nulled by mudclient on unload
+aModelArrayArray598	roofModels	EngineHandle [4][64]; mudclient hides when indoors
+aModel	landscapeModel	EngineHandle: scratch model split into the three arrays; mudclient nulls it
+aBooleanArray184	listScrollbarGrabbed	Menu: thumb-drag latch per component
+aBooleanArray185	menuObjectMaskText	Menu: draw X's instead of text (password inputs)
+anIntArray187	menuListScrollOffset	Menu: list scroll position; mudclient writes 999999 = pin to bottom
+anIntArray189	menuObjectSelected	Menu: selected list entry, doubles as checkbox toggle state
+anIntArray190	menuListEntryMouseOver	Menu: hovered entry, -1 none; read via selectedListIndex
+anInt207	scrollbarTrackLight	Menu colour (114,114,176)
+anInt208	scrollbarTrackDark	Menu colour (14,14,62)
+anInt209	scrollbarHandleLight	Menu colour (200,208,232), thumb left edge
+anInt210	scrollbarHandleMid	Menu colour (96,129,184), thumb fill
+anInt211	scrollbarHandleDark	Menu colour (53,95,115), thumb right edge
+anInt212	roundedBoxEdgeOuter	Menu colour (117,142,171)
+anInt213	roundedBoxEdgeMid	Menu colour (98,122,158)
+anInt214	roundedBoxEdgeInner	Menu colour (86,100,136)
+anInt215	panelColourLight	Menu colour (135,146,179), top-left edges + gradient light end
+anInt216	bevelColourLight	Menu colour (97,112,151), restored vanilla top-left bevel
+anInt217	bevelColourDark	Menu colour (88,102,136), restored vanilla bottom-right bevel
+anInt218	panelColourDark	Menu colour (84,93,120), bottom-right edges + gradient dark end
+aBoolean220	drawBackgroundTexture	Menu static: tile alpha sprite 2106 in panels; mudclient sets false in-game
+anInt225	listLineHeightReduction	Menu static: chat lists drawn 2px tighter; mudclient sets 2 then 0
+method142	drawCheckbox	Menu renderer type 14
+method145	drawTextInput	Menu renderer types 5/6
+method146	drawPanelBox	Menu renderer type 2
+method147	drawRoundedBox	Menu renderer type 11 (corner sprites 2102-2105)
+method148	drawPicture	Menu renderer type 12
+method149	drawHorizontalLine	Menu renderer type 3
+method150	drawTextList	Menu renderer type 4; ScrollRepeat comment updated
+method151	drawScrollbar	Menu: gutter+arrows+thumb
+method152	drawOptionListHoriz	Menu renderer type 7
+method153	drawOptionListVert	Menu renderer type 8
+method154	drawInteractiveTextList	Menu renderer type 9; ScrollRepeat comment updated
+method157	makeRoundedBox	Menu creator type 11; mudclient character design
+method158	makePicture	Menu creator type 12; mudclient character design
+method159	makeTextList	Menu creator type 4; mudclient message tabs
+method160	makeTextInput	Menu creator type 5; mudclient chat input
+method162	makeInteractiveTextList	Menu creator type 9; spell/friends/quest lists
+method165	setListScroll	Menu: set scroll offset, clear hover; mudclient tab switches
+method170	show	Menu: enable component; mudclient message tabs
+method171	hide	Menu: disable component; mudclient message tabs
+anInt226	vertexCount	Model: number of vertices in use
+anIntArray227	projectVertexX	Model: camera-space X after project()
+anIntArray228	projectVertexY	Model: camera-space Y after project()
+anIntArray229	projectVertexZ	Model: camera-space Z (depth) after project()
+anIntArray230	vertexViewX	Model: projected screen X, read by Camera rasteriser
+anIntArray231	vertexViewY	Model: projected screen Y
+anIntArray232	vertexIntensity	Model: gouraud shade per vertex (light() writes, Camera reads)
+aByteArray233	vertexAmbience	Model: per-vertex ambience offset (setVertexAmbience)
+anInt234	faceCount	Model: number of faces in use
+anIntArray235	faceNumVertices	Model: vertex count per face
+anIntArrayArray236	faceVertices	Model: vertex indices per face
+anIntArray237	faceFillFront	Model: front fill colour/texture (12345678 = invisible)
+anIntArray238	faceFillBack	Model: back fill colour/texture
+anIntArray239	faceCameraNormalMagnitude	Model: Camera-computed view normal magnitude
+anIntArray240	faceCameraNormalScale	Model: view normal shift; -1 = recompute
+anIntArray241	faceIntensity	Model: flat shade per face; 12345678 = gouraud
+anIntArray242	faceNormalX	Model: face normal X, 65536 fixed point
+anIntArray243	faceNormalY	Model: face normal Y
+anIntArray244	faceNormalZ	Model: face normal Z
+anInt245	depth	Model: depth bias added to CameraModel.depth (never nonzero here)
+anInt246	transformState	Model: 0 clean, 1 re-apply transform, 2 reset only + no culling
+aBoolean247	visible	Model: set by project() frustum test
+anInt248	minX	Model: bounding box
+anInt249	maxX	Model: bounding box
+anInt250	minY	Model: bounding box
+anInt251	maxY	Model: bounding box
+anInt252	minZ	Model: bounding box
+anInt253	maxZ	Model: bounding box
+aBoolean255	translucent	Model: Camera picks translucent scanline fill
+anInt257	key	Model: mouse-pick id; object index, +10000 for doors
+anIntArray258	faceTag	Model: per-face pick tag (tiles/walls 200000+)
+aByteArray259	isLocalPlayer	Model: 1 = face belongs to local player, picking skips it
+aBoolean260	autocommit	Model ctor flag: transformed arrays alias base arrays
+aBoolean261	isolated	Model ctor flag: skip per-face bounds
+aBoolean262	unlit	Model ctor flag: skip all lighting
+aBoolean263	unpickable	Model ctor flag: no faceTag/isLocalPlayer arrays
+aBoolean264	projected	Model ctor flag: no projection arrays (never drawn directly)
+anIntArray265	sinCosTable256	Model: sin 0-255 / cos 256-511, x32768 (2pi/256 steps)
+anIntArray266	sinCosTable1024	Model: sin 0-1023 / cos 1024-2047, x32768 (camera angles)
+aByteArray267	base64Alphabet	Model: ob3 digit alphabet (write-only companion of decode table)
+anIntArray268	base64Decode	Model: byte -> 0..63 for readBase64
+anInt270	magic	Model: 12345678 marker (invisible fill / gouraud face)
+anInt271	maxVertices	Model: vertex array capacity
+anInt278	maxFaces	Model: face array capacity
+anIntArrayArray279	faceOrigins	Model: write-only merge provenance (map-editor leftover)
+anIntArray280	faceMinX	Model: per-face bounds (skipped when isolated)
+anIntArray281	faceMaxX	Model: per-face bounds
+anIntArray282	faceMinY	Model: per-face bounds
+anIntArray283	faceMaxY	Model: per-face bounds
+anIntArray284	faceMinZ	Model: per-face bounds
+anIntArray285	faceMaxZ	Model: per-face bounds
+anInt286	translateX	Model: pending transform
+anInt287	translateY	Model: pending transform
+anInt288	translateZ	Model: pending transform
+anInt289	rotationX	Model: pending rotation, 0-255 = full circle
+anInt290	rotationY	Model: pending rotation (yaw; vertical axis)
+anInt291	rotationZ	Model: pending rotation
+anInt292	scaleX	Model: pending scale, 256 = 1.0
+anInt293	scaleY	Model: pending scale
+anInt294	scaleZ	Model: pending scale
+anInt295	shearXbyY	Model: x += y*s >> 8
+anInt296	shearZbyY	Model: z += y*s >> 8
+anInt297	shearXbyZ	Model: x += z*s >> 8
+anInt298	shearYbyZ	Model: y += z*s >> 8
+anInt299	shearZbyX	Model: z += x*s >> 8
+anInt300	shearYbyX	Model: y += x*s >> 8
+anInt301	transformKind	Model: 0 none/1 translate/2 rotate/3 scale/4 shear
+anInt302	diameter	Model: largest single-face extent (also 12345678/9999999 sentinels)
+anInt303	lightDirectionX	Model: light vector
+anInt304	lightDirectionY	Model: light vector
+anInt305	lightDirectionZ	Model: light vector
+anInt306	lightDirectionMagnitude	Model: |light vector|
+anInt307	lightDiffuse	Model: diffuse scale (512 default)
+anInt308	lightAmbience	Model: ambient base (32 default)
+anInt309	dataIndex	Model: read cursor for readBase64
+anIntArray272	vertexX	Model: model-space X (as loaded)
+anIntArray273	vertexY	Model: model-space Y
+anIntArray274	vertexZ	Model: model-space Z
+anIntArray275	vertexTransformedX	Model: world-space X after applyTransform
+anIntArray276	vertexTransformedY	Model: world-space Y
+anIntArray277	vertexTransformedZ	Model: world-space Z
+method174	initialise	Model: allocate arrays per ctor flags
+method175	projectionPrepare	Model: allocate projection arrays after split
+method176	clear	Model: reset vertex/face counts (EngineHandle/Camera reuse)
+method177	reduce	Model: drop last n faces/vertices (Camera sprite scratch)
+method178	merge	Model: combine models, dedup vertices, bake transforms
+method179	getOrAddVertex	Model: find existing vertex at x,y,z else append
+method180	addVertex	Model: append vertex unconditionally
+method181	addFace	Model: append face (nverts, indices, fillFront, fillBack)
+method182	split	Model: cut into grid chunks for terrain culling
+method183	copyFaceTo	Model: copy one face+shading into another model (split helper)
+method184	setLight	Model: overload w/ gouraud flag (sets all faceIntensity)
+method185	setLight	Model: overload ambience+diffuse+direction
+method186	setLight	Model: overload direction only
+method187	setVertexAmbience	Model: per-vertex shade offset (terrain shadowing)
+method188	rotateBy	Model: add to pending rotation
+method189	setRotation	Model: set pending rotation
+method190	translateBy	Model: add to pending translation
+method191	setTranslation	Model: set pending translation
+method192	determineTransformKind	Model: pick transform level 0-4
+method193	applyTranslate	Model: transform step
+method194	applyRotation	Model: transform step, Z then X then Y, >>15 fixed point
+method195	applyShear	Model: transform step
+method196	applyScale	Model: transform step, 256 = 1.0
+method197	computeBounds	Model: model + per-face bounding boxes, diameter
+method198	light	Model: shade faces/vertices from normals (dot product)
+method199	computeNormals	Model: cross-product normals, then relight
+method200	applyTransform	Model: run pending transform per transformState
+method201	project	Model: camera-space + screen projection for rasteriser
+method202	commit	Model: bake transform into base vertices, reset pending
+method203	copy	Model: full copy preserving depth/isGiantCrystal
+method204	copy	Model: overload copy with ctor flags
+method205	copyPosition	Model: adopt another model's rotation+translation
+method206	readBase64	Model: 3 base64 digits -> int, 131072 bias, ob3 format
+anInt448	frustumMinX	Camera+Model; world-space frustum AABB rebuilt per frame, Model.project culls against it
+anInt449	frustumMaxX	Camera+Model
+anInt450	frustumMinY	Camera+Model
+anInt451	frustumMaxY	Camera+Model
+anInt452	frustumMinZ	Camera+Model
+anInt453	frustumMaxZ	Camera+Model
+anInt372	leftShade	CameraVariables+Camera; shade at scanline left edge
+anInt373	rightShade	CameraVariables+Camera; shade at scanline right edge
+anIntArray384	sinCosTable1024	Camera+mudclient; sin[0..1023] cos[1024..2047] x32768, 1024=full turn
+zoom1	clipFar3d	Camera+mudclient; far clip for model faces
+zoom2	clipFar2d	Camera+mudclient; far clip for sprites
+zoom3	fogZFalloff	Camera+mudclient; divisor of fog darkening
+zoom4	fogZDistance	Camera+mudclient; z where fog starts
+aModel_423	spriteModel	Camera+mudclient; synthetic model of 2-vertex billboard faces
+updateFightCount	reduceSprites	Camera+mudclient; pops last n sprites
+method268	addSprite	Camera+mudclient; (id,x,y,z,width,height,tag)
+setCombat	setSpriteTranslateX	Camera+mudclient; pick-box x offset (combat lean +-30)
+method272	getMousePickedCount	Camera+mudclient
+method273	getMousePickedFaces	Camera+mudclient
+getVisibleModels	getMousePickedModels	Camera+mudclient; old name wrong, these are pick results
+method297	allocateTextures	Camera+mudclient; (count,pool64,pool128)
+method298	defineTexture	Camera+mudclient; (id,pixelIndices,palette,dimensionFlag)
+method301	scrollTexture	Camera+mudclient; water animation, rotates rows
+method302	getFillColor	Camera+EngineHandle; representative RGB of fill
+method303	setLight	Camera+mudclient; (x,y,z) overload
+method304	setLight	Camera+mudclient; (ambience,diffuse,x,y,z) overload
+method305	rgbToFill	Camera+EngineHandle; static, packs rgb into negative flat-fill id
+anInt374	gradientRampCount	50 cached flat-fill ramps
+anIntArray375	gradientRampFill	fill id per cached ramp
+anIntArrayArray376	gradientRamps	[50][256] dark-to-colour ramps
+anIntArray377	currentGradientRamp	ramp selected for current face
+lastCameraModelCount	lastVisibleFaceCount	set each frame, read by nothing yet
+anInt379	clipNear	5; near plane, faces crossing it get clipped
+anIntArray385	sinCosTable256	256-step table; written in ctor, never read
+aBoolean386	halfResGradient	selects 2px-step gradient scanline; never set
+aDouble387	unusedDouble	1.1, no reads anywhere
+anInt388	unusedInt	1, no reads anywhere
+aBoolean389	mousePickRequested	set by updateMouseCoords, cleared after render
+currentVisibleModelCount	mousePickedCount	
+maxVisibleModelCount	mousePickedMax	100
+visibleModelsArray	mousePickedModels	
+visibleModelIntArray	mousePickedFaces	face index per picked model
+cameraSizeInt	viewDistance	projection shift (<< viewDistance / z); Camera.java only, mudclient has own same-named field
+anInt402	normalMagnitudeScale	4; multiplies |normal| into faceCameraNormalMagnitude
+anInt403	cameraX	subtracted in Model.project
+anInt404	cameraY	
+anInt405	cameraZ	
+anInt406	cameraPitch	1024-angle, inverse rotation; mudclient passes 912
+anInt407	cameraYaw	
+anInt408	cameraRoll	
+cameraModelCount	visibleFaceCount	CameraModel records used this frame
+cameraModels	visibleFaces	the CameraModel pool
+anInt415	spriteCount	
+anIntArray416	spriteId	entity bands: >=50000 bubble >=40000 item >=20000 npc >=5000 player
+anIntArray417	spriteX	
+anIntArray418	spriteY	
+anIntArray419	spriteZ	
+anIntArray420	spriteWidth	
+anIntArray421	spriteHeight	
+anIntArray422	spriteTranslateX	
+anInt424	textureCount	
+aByteArrayArray425	texturePixelIndices	palette indices per texture
+anIntArrayArray426	texturePalettes	
+anIntArray427	textureDimension	0=64px 1=128px
+aLongArray428	textureLastUsed	LRU stamp per texture
+anIntArrayArray429	texturePixels	rendered RGB + 3 darkened copies
+aBooleanArray430	textureBackTransparent	magenta 16253183 present
+aLong431	textureUseCounter	LRU clock
+anIntArrayArray432	texturePixelPool64	7 buffers of 64*64*4
+anIntArrayArray433	texturePixelPool128	11 buffers of 128*128*4
+aByteArray434	unusedScratchBuffer	17691 bytes allocated once, never read (also dead in vanilla)
+anIntArray437	framebufferPixels	= gameImage.imagePixelArray
+cameraVariables	scanlines	per-row edge table
+modelLeftY	polygonMinY	old name wrong; top row of current polygon
+modelRightY	polygonMaxY	bottom row
+anInt454	newStart	reorderFaces out-param
+anInt455	newEnd	reorderFaces out-param
+anIntArray441	planeX	clipped screen-space poly X (40)
+anIntArray442	planeY	clipped screen-space poly Y
+anIntArray443	vertexShade	per-vertex shade incl. fog
+anIntArray444	faceVertexX	projected-space verts for texture mapping
+anIntArray445	faceVertexY	
+anIntArray446	faceVertexZ	
+method266	clearSprites	
+method276	sortByDepth	quicksort on CameraModel.depth
+method277	overlapCorrectionPass	painter fixup using ordered/lastSwapIndex
+method278	reorderFaces	recursive shuffle, sets newStart/newEnd
+method279	extendFrustum	grow frustum AABB by inverse-rotated corner
+method281	generateScanlines	scan conversion into scanlines[], 24.8 fixed point
+method282	rasterizeFace	fill dispatch: texture/flat, translucent/transparent, interlace
+method283	textureScanline128	opaque
+method284	textureScanline128Translucent	50/50 blend
+method285	textureScanline128Transparent	skips colour 0
+method286	textureScanline64	opaque
+method287	textureScanline64Translucent	
+method288	textureScanline64Transparent	
+method289	gradientScanlineHalfRes	2px steps, only under halfResGradient
+method290	gradientScanlineTranslucent	
+method291	gradientScanline	
+method293	initFaceRecord	normal, visibility sign, screen/depth bounds
+method294	initSpriteRecord	fixed +Z normal, widened pick box
+method295	facesAreSeparated	no-occlusion test
+method296	faceOrderHeuristic	plane-side draw-order test
+method299	prepareTexture	LRU fetch/evict of rendered pixels
+method300	setTexturePixels	render palette + 3 darkened copies
+method306	interpolateX	edge x at given y
+method307	edgeSpansCross	4-value span crossing test
+method308	edgeSpanCrosses	3-value variant
+method309	polygonsIntersect	exact 2D poly-poly intersection
+aBooleanArray827	objectAlreadyInMenu	per-object flag: menu entries already added this right-click build (1500)
+aBooleanArray970	doorAlreadyInMenu	per-door flag: menu entries already added this right-click build (500)
+anInt658	spriteRotationMatchRun	consecutive frames minimap blips agreed with compass rotation; anti-tamper, resets >20
+anInt718	healthBarCount	overhead health bars queued this frame
+anIntArray786	healthBarX	overhead health bar screen x
+anIntArray787	healthBarY	overhead health bar screen y
+anIntArray788	healthBarValue	green width 0..30 = hitPointsCurrent*30/base
+anInt727	screenRotationXStep	idle screen-shake drift step for screenRotationX (+/-2, bounces at +/-50)
+anInt911	screenRotationYStep	idle screen-shake drift step for screenRotationY
+anInt742	lastModelFireLightningSpellNumber	last fire/lightning animation frame applied to scene objects
+anInt743	lastModelTorchNumber	last torch animation frame applied
+anInt744	lastModelClawSpellNumber	last claw-spell animation frame applied
+anInt789	loadedSectionMinX	inner bound of loaded area; leave it and loadSection reloads
+anInt790	loadedSectionMinY	inner bound of loaded area
+anInt791	loadedSectionMaxX	inner bound of loaded area
+anInt792	loadedSectionMaxY	inner bound of loaded area
+anInt826	playerInfoTab	player info panel tab: 0=stats 1=quests
+anInt882	inventoryMaxSlots	=30; drives inventory panel grid maths
+anInt892	teleBubbleCount	live teleport/telegrab bubbles (max 50)
+anIntArray944	teleBubbleX	tele bubble tile x (opcode 23: data[2]+sectionX)
+anIntArray757	teleBubbleY	tele bubble tile y
+anInt900	newUserStatusText	menuNewUser control for status prints; never assigned so always control 0
+anInt952	allMessagesTabFlash	200-tick red-flash countdown on All messages chat tab
+anInt953	chatHistoryTabFlash	flash countdown on Chat history tab
+anInt954	questHistoryTabFlash	flash countdown on Quest history tab
+anInt955	privateHistoryTabFlash	flash countdown on Private history tab
+anInt981	friendsWindowTab	friends window tab: 0=friends 1=ignore
+anInt985	minimapRandomRotation	anti-macro jitter +/-6, rerolled when map tab opens
+anInt986	minimapRandomZoom	anti-macro jitter, zoom 192+/-11, rerolled when map tab opens
+method62	drawCharacterDesignScreen	draws character design menu + preview body/head sprites
+method74	formatItemCount	comma-groups count, adds @cya@K/@gre@million prefix (trade/duel confirm)
+method98	replaceObjectModel	swaps a scene object's model for a named animation frame model
+method112	walkToTile	wraps sendWalkCommand src==dest; also called from Methods.java (renamed there)
+method117	isItemWielded	true if item id is in inventory with wearing flag set
+method119	drawOverheads	draws mob chat text (de-overlapped), item bubbles, health bars

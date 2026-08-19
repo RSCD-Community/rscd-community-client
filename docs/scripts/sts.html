@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STS scripts — the native tier</title>
+<style>
+body{max-width:52rem;margin:2rem auto;padding:0 1rem;font:16px/1.6 Georgia,serif;background:#f6f2e8;color:#2b2417}
+h1,h2,h3{font-family:Verdana,sans-serif;color:#5c3d10}
+h1{border-bottom:3px double #b8a06a;padding-bottom:.3rem}
+h2{border-bottom:1px solid #d8c9a3;padding-bottom:.2rem;margin-top:2.2rem}
+code,pre{font:14px/1.5 Consolas,Menlo,monospace;background:#efe7d2;border-radius:3px}
+code{padding:.05rem .3rem}
+pre{padding:.8rem 1rem;overflow-x:auto;border:1px solid #d8c9a3}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:1rem 0}
+th,td{border:1px solid #d8c9a3;padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#efe7d2;font-family:Verdana,sans-serif;font-size:14px}
+a{color:#7a4a12}
+.tip{background:#fdf6dd;border-left:4px solid #c9a227;padding:.6rem 1rem;margin:1rem 0}
+.api td:first-child{white-space:nowrap;font-family:Verdana,sans-serif;font-size:13px;font-weight:bold}
+</style>
+</head>
+<body>
+
+<p><a href="index.html">&larr; all scripting tiers</a></p>
+
+<h1>STS scripts</h1>
+
+<p>The native tier. Your script extends <code>Methods</code>, writes a
+<code>MainBody()</code>, and owns its own loop — the client gives you around
+260 <code>PascalCase</code> methods covering everything a player can do and
+everything a player can see. The API is SkullTorchaScriptable's, recovered
+from the STS203C release and implemented natively in this client.</p>
+
+<h2>Quick start</h2>
+
+<p>Save this as <code>scripts/STS/Chopper.java</code>, then type
+<code>/start Chopper</code> in game:</p>
+
+<pre><code>public class Chopper extends Methods
+{
+   public Chopper(mudclient mc) { super(mc); }
+
+   public void MainBody(String args[])
+   {
+      Display("@gre@Chopper started");
+      while (Running())
+      {
+         if (CountInv(14) &gt; 25)          // 14 = logs
+         {
+            DropItem(14);
+            Wait(600);
+            continue;
+         }
+         int[] tree = GetObjectById(new int[]{0, 1});   // 0,1 = trees
+         if (tree[0] != -1)
+            AtObject(tree[1], tree[2]);   // chop it
+         Wait(1000 + Rand(500));
+      }
+   }
+}</code></pre>
+
+<p>No <code>package</code> line, no imports — the client prepends
+<code>import org.rscdaemon.client.*;</code> when it compiles the file. Edit
+and <code>/reload</code>; there is no build step.</p>
+
+<h2>The shape</h2>
+
+<ul>
+<li><code>MainBody(String[] args)</code> is your program.
+<code>/start Chopper(yew,bank)</code> arrives as
+<code>args = {"yew","bank"}</code>.</li>
+<li><strong>Loop on <code>Running()</code></strong> and call
+<code>Wait(ms)</code> inside the loop. <code>Running()</code> flips false when
+the player types <code>/stop</code> — a loop that ignores it cannot be stopped
+politely.</li>
+<li><strong>Everything is by item/npc/object id, not screen position.</strong>
+Ids are the world's own definition ids — the same numbers the server uses.</li>
+<li>When <code>MainBody</code> returns, the script is done.</li>
+</ul>
+
+<h2>Talking to the player</h2>
+
+<table>
+<tr><td><code>Display(text)</code></td><td>a line in the chat box. Colour codes work: <code>@red@</code>, <code>@gre@</code>, <code>@ran@</code>…</td></tr>
+<tr><td><code>GetOption(question, String[] options)</code></td><td>pops a pick-one menu over the game, returns the chosen index — how a script asks "which alchemy?" before starting work</td></tr>
+<tr><td><code>GetInput(prompt)</code></td><td>asks for a typed line</td></tr>
+<tr><td><code>ToShow(Stats)</code></td><td>puts your own text overlay on screen — see any shipped script's status display</td></tr>
+<tr><td><code>OnInput(line)</code></td><td>override to receive unrecognised <code>/</code> lines while running — your script's own commands</td></tr>
+</table>
+
+<h2>Events you can override</h2>
+
+<p><code>OnChatMessage</code>, <code>OnPrivateMessage</code>,
+<code>OnServerMessage</code>, <code>KeyPressed</code>, <code>OnInput</code> —
+override the ones you want; the defaults do nothing.</p>
+
+<h2>The API, by area</h2>
+
+<p>Names only — signatures and per-method comments are in
+<a href="../../src/org/rscdaemon/client/Methods.java"><code>Methods.java</code></a>,
+and the eleven shipped scripts in <code>scripts/STS/</code> are working,
+readable examples of nearly all of it.</p>
+
+<table class="api">
+<tr><th>Area</th><th>Methods</th></tr>
+<tr><td>You</td><td>GetX GetY GetRsName GetNick GetFatigue GetCombatLvl GetCurLvl GetMaxLvl GetExp GetExpForNextLvl GetAverage QuestPoints WildLvl InWild InCombat IsWalking Sleeping LoggedIn</td></tr>
+<tr><td>Moving</td><td>WalkTo WalkToWait ForceWalkTo ForceWalkToWait InArea InTown DistanceTo IsReachable WhereIs</td></tr>
+<tr><td>Inventory</td><td>CountInv InInv InvItemId ItemId ItemName ItemDesc ItemStackable IsItemWearable UseItem UseItem2 UseItemWithItem DropItem WearItem WearingItem RemoveItem CanEat</td></tr>
+<tr><td>Ground items</td><td>GetItemById GetItemPos IsItemAt ItemX ItemY PickupItem PickupItemById CountItems UseItemOnGItem</td></tr>
+<tr><td>Npcs</td><td>GetNpcById GetAllNpcById GetNpcByIdNotTalk NpcId NpcName NpcDesc NpcX NpcY NpcCombat NpcMaxHits NpcInCombat NpcAttackable IsNpcTalking CountNpcs AttackNpc TalkToNpc ThieveNpc UseOnNpc</td></tr>
+<tr><td>Objects</td><td>GetObjectById GetIdObject ObjectId ObjectName ObjectDesc ObjectX ObjectY IsObjectAt CountObjects AtObject AtObject2 UseOnObject</td></tr>
+<tr><td>Wall objects</td><td>GetWallObjectById GetIdWallObject WallObjectId WallObjectName WallObjectDesc WallObjectX WallObjectY CountWallObjects AtWallObject AtWallObject2 UseOnWallObject</td></tr>
+<tr><td>Players</td><td>GetPlayerByName PlayerName PlayerX PlayerY PlayerInCombat CountPlayers FightingPlayerInWild</td></tr>
+<tr><td>Bank</td><td>InBank OpenBank via AtObject… CloseBank Deposit Withdraw BankCount CountInBank BankItemId ItemInBank</td></tr>
+<tr><td>Shops</td><td>InShop CountShop BuyShopItem SellShopItem ShopBuyPrice ShopSellPrice CloseShop</td></tr>
+<tr><td>Trade</td><td>TradePlayer InTradeScreen1 InTradeScreen2 AddToOffer OfferItems IsOffered GetTradeOpponentName GetOpponentTradeItems GetOpponentTradeAmounts AcceptTrade1 AcceptTrade2 MyTrade1Accepted MyTrade2Accepted OpponentTradeAccepted DeclineTrade</td></tr>
+<tr><td>Magic &amp; prayer</td><td>CastOnSelf CastOnNpc CastOnItem CastOnGItem CastOnGround CastOnObject CastOnWallObject IsCastableOn… HasRunesForSpell SpellName PrayerOn PrayerOff IsPrayerOn PrayerLvl</td></tr>
+<tr><td>Dialogue</td><td>Answer QuestMenu CountQuestMenu GetQuestOption IsPopup ClosePopup QuestDone</td></tr>
+<tr><td>Session</td><td>Login LogOut CanLogOut ForceLogOut AutoLogin IsAutoLogin ChangeServer ChangeWorld HopServer GetServer GetWorld MembersWorld</td></tr>
+<tr><td>Social</td><td>SendPM AddToFriends RemoveFromFriends GetFriendList IsOnFriendList AddToIgnore RemoveFromIgnore GetIgnoreList IsOnIgnoreList Speak ChatFilterOn</td></tr>
+<tr><td>Fight mode</td><td>GetMode SetMode LockMode UnlockMode</td></tr>
+<tr><td>Utility</td><td>Wait Rand Time GetMillis InArray IsInStr IntToStr StrToInt Replace SaveScreenShot PlaySound SetGfx Debug ShowMessage HitsPercent HealthBarShowing NpcHealthBarShowing SleepIfAt FixSleeping IsSpecial GetLvlName GetAuthName StartScanForMods StopScanForMods IsScanningForMods End Die</td></tr>
+</table>
+
+<div class="tip"><strong>Sleep and fatigue:</strong> this client has no sleep
+screen, so <code>Sleeping()</code> reports false and the sleeping-bag flow is
+simplified — scripts that guard on fatigue still work, they just never hit the
+sleep path.</div>
+
+<h2>Gotchas</h2>
+
+<ul>
+<li><strong>The finders return arrays, and the first slot differs on
+purpose:</strong> object, wall-object and ground-item finders answer
+<code>[id, x, y]</code>; the <em>npc</em> finders answer
+<code>[index, x, y]</code>. Either way <code>-1</code> in slot 0 means
+nothing matched — check it before using the coordinates. The asymmetry is
+STS's own and 2006-era scripts depend on it.</li>
+<li><strong><code>Wait()</code> generously.</strong> The game ticks at 50/s but
+the server acts far slower; a tight loop with no wait just burns CPU and looks
+like a machine. Every surviving human-written script waits 300–2000&nbsp;ms
+with a random jitter.</li>
+<li><strong>IRC methods exist and answer honestly:</strong>
+<code>UsingIRC()</code> is false and the <code>Irc*</code> calls are inert —
+STS's IRC integration has no server to talk to any more, but scripts that
+call it still load.</li>
+</ul>
+
+<h2>Read next</h2>
+
+<p><code>scripts/STS/</code> ships eleven real scripts —
+<code>Alcher.java</code> is a good first read (option menus, banking, casting).
+The framework itself is
+<a href="../../src/org/rscdaemon/client/Methods.java"><code>Methods.java</code></a>;
+every method there carries its own comment.</p>
+
+</body>
+</html>
