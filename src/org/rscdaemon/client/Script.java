@@ -259,7 +259,7 @@ public class Script extends Methods {
          this.init(join(Args));
       } catch (Throwable var4) {
          this.report("init", var4);
-         return;
+         throw rethrow(var4);
       }
 
       while (this.Running()) {
@@ -269,7 +269,7 @@ public class Script extends Methods {
             delay = this.main();
          } catch (Throwable var3) {
             this.report("main", var3);
-            return;
+            throw rethrow(var3);
          }
 
          if (!this.Running()) {
@@ -308,6 +308,27 @@ public class Script extends Methods {
       this.Display("@red@Script threw in " + where + "(): " + cause);
       cause.printStackTrace();
       this.End();
+   }
+
+   /*
+    * A crash must LEAVE this class as a throw, not as a quiet return.
+    * ScriptRunner's thread wrapper tells "the script chose to end" from "the
+    * script died" by whether MainBody threw -- a clean return disarms the
+    * login-resume machinery for good, a throw keeps the session resumable on
+    * the crash backoff. Swallowing the crash here (as APOS did, and this
+    * class used to) turned every mid-run exception -- a server restart
+    * yanking the world out from under main() is the common one -- into a
+    * permanent, silent stop that left the paint overlay ticking over a dead
+    * bot.
+    */
+   private static RuntimeException rethrow(Throwable cause) {
+      if (cause instanceof Error) {
+         throw (Error) cause;
+      }
+      if (cause instanceof RuntimeException) {
+         return (RuntimeException) cause;
+      }
+      return new RuntimeException(cause);
    }
 
    /* ================= events ================= */
@@ -418,6 +439,18 @@ public class Script extends Methods {
    /** Stop this script. */
    public void stopScript() {
       this.End();
+   }
+
+   /**
+    * Whether this run was started by the machinery -- the login restart or
+    * the panel's Play -- rather than by a person picking the script. A script
+    * with its own setup window should only show it when somebody is actually
+    * there: on an unattended start it can restore saved settings instead and
+    * keep the screen clear.
+    */
+   public boolean isUnattended() {
+      ScriptRunner runner = this.rs == null ? null : this.rs.scripts();
+      return runner != null && runner.unattended();
    }
 
    /** Wait, in milliseconds. Returns as soon as the script is stopped. */
@@ -1416,8 +1449,11 @@ public class Script extends Methods {
    }
 
    public boolean isPlayerWalking(int index) {
+      // Same test as IsWalking(): waypoint read index still chasing the
+      // write index. stepCount is the walk-animation frame counter and
+      // never resets, so it is useless as a moving/idle signal.
       Mob mob = this.player(index);
-      return mob != null && mob.stepCount > 0;
+      return mob != null && mob.waypointEndSprite != (mob.waypointCurrent + 1) % 10;
    }
 
    /* ---------------- quest menu ---------------- */
