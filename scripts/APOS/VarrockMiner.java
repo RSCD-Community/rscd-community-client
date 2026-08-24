@@ -55,11 +55,18 @@ public final class VarrockMiner extends Script
 	private static final int TIN_ORE    = 202;
 	private static final int IRON_ORE   = 151;
 
-	private static final int[] ORES_TO_BANK = { COPPER_ORE, TIN_ORE, IRON_ORE };
+	/* Ores plus the uncut gems a swing occasionally turns up
+	   (diamond 157, ruby 158, emerald 159, sapphire 160). */
+	private static final int[] ORES_TO_BANK = {
+		COPPER_ORE, TIN_ORE, IRON_ORE, 157, 158, 159, 160
+	};
 
 	private static final int[] PICKAXES = {
 		1262, 1261, 1260, 1259, 1258, 156
 	};
+
+	/* Mining level each pick demands, same order - rune 41 down to bronze. */
+	private static final int[] PICKAXE_REQS = { 41, 31, 21, 6, 1, 1 };
 
 	private static final int SLEEPING_BAG = 1263;
 
@@ -67,16 +74,28 @@ public final class VarrockMiner extends Script
 
 	/*
 	 * Walking route between Varrock East bank and the south-east mine,
-	 * bank end first. Every tile verified walkable against the server's
-	 * collision grid; hops are short enough for the client pathfinder.
+	 * bank end first. Waypoints sampled off a BFS of the server's
+	 * collision grid (edge bits included), so every hop is genuinely
+	 * walkable: the bank's only doorway is on its north side, so the
+	 * route runs the y=509-510 corridor along the bank's north face,
+	 * then south-west, crossing the mine's north fence through the gap
+	 * west of x=79. Hops stay short so the client pathfinder never has
+	 * to think.
 	 */
 	private static final int[][] PATH = {
 		{ 101, 512 },   // inside Varrock East bank
-		{  97, 516 },
-		{  92, 521 },
-		{  86, 528 },
-		{  81, 533 },
-		{  75, 540 },
+		{ 102, 509 },   // just outside the bank doors
+		{  97, 508 },   // the road into town
+		{  91, 508 },
+		{  85, 508 },
+		{  83, 512 },   // off the road, down the lane west of the houses
+		{  83, 517 },
+		{  82, 521 },
+		{  81, 525 },
+		{  78, 527 },
+		{  77, 531 },   // x77, not 78: (78,533) is a diagonal fence tile
+		{  77, 536 },   // the gap in the mine's north fence
+		{  76, 542 },
 		{  74, 546 }    // the mine
 	};
 
@@ -85,9 +104,69 @@ public final class VarrockMiner extends Script
 	private int  oreCount;
 	private int  initialXP;
 
+	/*
+	 * The login-restart machinery replays recorded prompt answers, but this
+	 * script interviews through its own AWT window, which nothing can click
+	 * for an empty chair -- so an automatic restart used to come up with
+	 * mode -1 and stand at the mine doing nothing. The configuration is
+	 * therefore persisted on Save and restored in init(): a resumed run
+	 * picks up exactly where the saved settings left it, window untouched.
+	 */
+	private static final java.io.File CONFIG =
+		new java.io.File( "script-bin", "VarrockMiner.cfg" );
+
 	public VarrockMiner( Extension ex )
 	{
 		super( ex );
+	}
+
+	private void saveConfig()
+	{
+		try
+		{
+			java.io.PrintWriter out = new java.io.PrintWriter( CONFIG, "UTF-8" );
+			out.println( mode );
+			out.println( switchLevel );
+			out.println( stopLevel );
+			out.close();
+		}
+		catch ( Exception e )
+		{
+			System.out.println( "[VarrockMiner] Could not save the configuration: " + e );
+		}
+	}
+
+	private void loadConfig()
+	{
+		if ( ! CONFIG.isFile() )
+		{
+			return;
+		}
+
+		try
+		{
+			java.io.BufferedReader in = new java.io.BufferedReader(
+				new java.io.InputStreamReader(
+					new java.io.FileInputStream( CONFIG ), "UTF-8" ) );
+			int m  = Integer.parseInt( in.readLine().trim() );
+			int sw = Integer.parseInt( in.readLine().trim() );
+			int st = Integer.parseInt( in.readLine().trim() );
+			in.close();
+
+			if ( m < MODE_EVEN || m > MODE_TRAIN )
+			{
+				return;
+			}
+
+			mode        = m;
+			switchLevel = sw;
+			stopLevel   = st;
+			System.out.println( "[VarrockMiner] Restored the saved configuration - already running; use the window to change it." );
+		}
+		catch ( Exception e )
+		{
+			System.out.println( "[VarrockMiner] Saved configuration unreadable, ignoring it: " + e );
+		}
 	}
 
 	@Override
@@ -152,6 +231,7 @@ public final class VarrockMiner extends Script
 					}
 
 					VarrockMiner.this.mode = picked;
+					VarrockMiner.this.saveConfig();
 
 					if ( VarrockMiner.this.mode == MODE_IRON && getLevel( 14 ) < 15 )
 					{
@@ -171,8 +251,18 @@ public final class VarrockMiner extends Script
 			this.frame = frame;
 		}
 
-		frame.setLocationRelativeTo( null );
-		frame.setVisible( true );
+		loadConfig();
+
+		/* A person starting the script always gets the window, saved settings
+		   already applied underneath as the running configuration -- Save
+		   overwrites them. Only an unattended start (the login restart, the
+		   panel's Play replay) skips it: nobody is there to click, and the
+		   restored settings are the whole point of the resume. */
+		if ( ! isUnattended() )
+		{
+			frame.setLocationRelativeTo( null );
+			frame.setVisible( true );
+		}
 
 		startTime = -1L;
 		moveTime  = -1L;
@@ -196,6 +286,18 @@ public final class VarrockMiner extends Script
 		if ( initialXP == 0 )
 		{
 			initialXP = getXpForLevel( 14 );
+		}
+
+		/*
+		 * An empty inventory can only mean the server has not sent it yet --
+		 * this run always carries at least the pickaxe and the sleeping bag.
+		 * Right after a relogin main() can tick ahead of that packet, and
+		 * without this wait the no-pickaxe check below would read the blank
+		 * as "no pickaxe" and end the run for good.
+		 */
+		if ( getInventoryCount() == 0 )
+		{
+			return 1000;
 		}
 
 		if ( getInventoryIndex( PICKAXES ) < 0 )
@@ -225,46 +327,10 @@ public final class VarrockMiner extends Script
 		if ( isBanking() )
 		{
 			/*
-			 * Every bank run is a chance to upgrade the pick: PICKAXES is
-			 * ordered best first, and the server gates none of them by level
-			 * (Formulae.getOre is bonus-only - bronze +0 up to rune +12), so
-			 * a better pick in the bank is always worth swapping to. Withdraw
-			 * the upgrade first, then the old pick goes back as a deposit on
-			 * the next pass.
+			 * Deposits before withdrawals, always - the inventory arrives
+			 * full, so nothing can come out of the bank until the ore has
+			 * gone in.
 			 */
-			int best = -1;
-
-			for ( int i = 0; i < PICKAXES.length; i++ )
-			{
-				if ( getInventoryCount( PICKAXES[i] ) > 0 )
-				{
-					best = i;
-					break;
-				}
-			}
-
-			for ( int i = 0; i < best; i++ )
-			{
-				if ( bankCount( PICKAXES[i] ) > 0 )
-				{
-					System.out.println( "[VarrockMiner] A better pickaxe is in the bank - swapping up." );
-					withdraw( PICKAXES[i], 1 );
-					return random( 1000, 1500 );
-				}
-			}
-
-			if ( best != -1 )
-			{
-				for ( int i = PICKAXES.length - 1; i > best; i-- )
-				{
-					if ( getInventoryCount( PICKAXES[i] ) > 0 )
-					{
-						deposit( PICKAXES[i], getInventoryCount( PICKAXES[i] ) );
-						return random( 1000, 1500 );
-					}
-				}
-			}
-
 			for ( int i = 0; i < ORES_TO_BANK.length; i++ )
 			{
 				int count = getInventoryCount( ORES_TO_BANK[i] );
@@ -272,6 +338,61 @@ public final class VarrockMiner extends Script
 				if ( count > 0 )
 				{
 					deposit( ORES_TO_BANK[i], count );
+					return random( 1000, 1500 );
+				}
+			}
+
+			/*
+			 * Every bank run is a chance to upgrade the pick - but only to
+			 * one the mining level can actually use (rune demands 41, down
+			 * through mithril 21 and steel 6; the server refuses the swing
+			 * otherwise). The best usable pick stays in the inventory;
+			 * every other pick carried, better or worse, goes in the bank.
+			 */
+			int best = -1;
+
+			for ( int i = 0; i < PICKAXES.length; i++ )
+			{
+				if ( getLevel( 14 ) >= PICKAXE_REQS[i] && getInventoryCount( PICKAXES[i] ) > 0 )
+				{
+					best = i;
+					break;
+				}
+			}
+
+			/*
+			 * Nothing usable in hand (say, only a rune pick at mining 5):
+			 * pull a usable one from the bank FIRST, or banking the dead
+			 * weight below would leave the inventory pickless and trip the
+			 * no-pickaxe stop at the top of main().
+			 */
+			if ( best == -1 )
+			{
+				for ( int i = 0; i < PICKAXES.length; i++ )
+				{
+					if ( getLevel( 14 ) >= PICKAXE_REQS[i] && bankCount( PICKAXES[i] ) > 0 )
+					{
+						withdraw( PICKAXES[i], 1 );
+						return random( 1000, 1500 );
+					}
+				}
+			}
+
+			for ( int i = 0; i < PICKAXES.length; i++ )
+			{
+				if ( i != best && getInventoryCount( PICKAXES[i] ) > 0 )
+				{
+					deposit( PICKAXES[i], getInventoryCount( PICKAXES[i] ) );
+					return random( 1000, 1500 );
+				}
+			}
+
+			for ( int i = 0; i < best; i++ )
+			{
+				if ( getLevel( 14 ) >= PICKAXE_REQS[i] && bankCount( PICKAXES[i] ) > 0 )
+				{
+					System.out.println( "[VarrockMiner] A better pickaxe is in the bank - swapping up." );
+					withdraw( PICKAXES[i], 1 );
 					return random( 1000, 1500 );
 				}
 			}
@@ -427,17 +548,10 @@ public final class VarrockMiner extends Script
 			next = Math.max( nearest - 1, 0 );
 		}
 
-		walkTo( PATH[next][0] + random( 0, 1 ), PATH[next][1] + random( 0, 1 ) );
+		/* Exact tiles only: every waypoint is verified walkable, but the
+		   tile one step off it may be a rock or a fence bit. */
+		walkTo( PATH[next][0], PATH[next][1] );
 		return random( 1000, 1500 );
-	}
-
-	@Override
-	public void walkTo( int x, int y )
-	{
-		if ( ! isWalking() )
-		{
-			super.walkTo( x, y );
-		}
 	}
 
 	@Override

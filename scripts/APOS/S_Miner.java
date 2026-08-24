@@ -26,9 +26,88 @@ import com.aposbot.StandardCloseHandler;
 public final class S_Miner extends Script
     implements ActionListener {
     
+    /*
+     * The chosen rocks live only in the AWT window, so an unattended restart
+     * (login retry, the panel's Play replay) used to come back with nothing
+     * selected and pop the window again on a loop. OK persists the choices,
+     * init() restores them, and an unattended start skips the window.
+     */
+    private static final java.io.File CONFIG =
+        new java.io.File("script-bin", "S_Miner.cfg");
+
     public S_Miner(Extension ex) {
         super(ex);
         pw = new PathWalker(ex);
+    }
+
+    private void saveConfig() {
+        try {
+            java.io.PrintWriter out = new java.io.PrintWriter(CONFIG, "UTF-8");
+            out.println(cb_bank.getState());
+            out.println(cb_drop_bad.getState());
+            out.println(choice_cmb.getSelectedIndex());
+            int count = list_rocks.getItemCount();
+            for (int i = 0; i < count; ++i) {
+                out.println(list_rocks.getItem(i));
+            }
+            out.close();
+        } catch (Exception e) {
+            System.out.println("[S_Miner] Could not save the configuration: " + e);
+        }
+    }
+
+    private void loadConfig() {
+        if (!CONFIG.isFile()) {
+            return;
+        }
+        try {
+            java.io.BufferedReader in = new java.io.BufferedReader(
+                new java.io.InputStreamReader(
+                    new java.io.FileInputStream(CONFIG), "UTF-8"));
+            boolean bank = Boolean.parseBoolean(in.readLine().trim());
+            boolean drop_bad = Boolean.parseBoolean(in.readLine().trim());
+            int style = Integer.parseInt(in.readLine().trim());
+            java.util.ArrayList<String> names = new java.util.ArrayList<String>();
+            String line;
+            while ((line = in.readLine()) != null) {
+                line = line.trim();
+                /* An unknown rock name means the saved file predates a rename;
+                   drop it rather than mining nothing at all. */
+                if (line.length() > 0 && map_rocks.containsKey(line)) {
+                    names.add(line);
+                }
+            }
+            in.close();
+            if (names.isEmpty()) {
+                return;
+            }
+            list_rocks.removeAll();
+            for (String name : names) {
+                list_rocks.add(name);
+            }
+            cb_bank.setState(bank);
+            cb_drop_bad.setState(drop_bad);
+            if (style >= 0 && style < choice_cmb.getItemCount()) {
+                choice_cmb.select(style);
+            }
+            applyConfig();
+            System.out.println("[S_Miner] Restored the saved configuration.");
+        } catch (Exception e) {
+            System.out.println("[S_Miner] Saved configuration unreadable, ignoring it: " + e);
+        }
+    }
+
+    /** Turn the selected rock names into the id table main() mines from. */
+    private void applyConfig() {
+        int rock_count = list_rocks.getItemCount();
+        rocks = new int[rock_count][];
+        for (int i = 0; i < rock_count; ++i) {
+            rocks[i] = map_rocks.get(list_rocks.getItem(i));
+        }
+        if (cb_bank.getState()) {
+            init_path = false;
+            banked_count = new int[bank_ids.length];
+        }
     }
     
     public static void main(String[] argv) {
@@ -474,6 +553,16 @@ public final class S_Miner extends Script
                 }
             } else {
                 if (_shouldBank()) {
+                    /* Anywhere at all: if a banker is standing within talking
+                       range there is no reason to keep walking or opening
+                       doors. This is what rescues a trip that stopped a tile
+                       short of the bank box. */
+                    int[] near_banker = getNpcByIdNotTalk(BANKERS);
+                    if (near_banker[0] != -1
+                            && distanceTo(near_banker[1], near_banker[2]) <= 5) {
+                        talkToNpc(near_banker[0]);
+                        return random(3000, 3500);
+                    }
                     if (distanceTo(287, 571) < 6) {
                         int[] doors = getObjectById(ID_BANK_DOORS);
                         if (doors[0] != -1) {
@@ -513,7 +602,16 @@ public final class S_Miner extends Script
 
         @Override
         public boolean applies() {
-            return getX() > 262 && getX() < 278 && getY() > 3381 && getY() < 3401;
+            /* Underground in the guild proper, but also the mine entry hut
+               and the Falador east bank: the script's own handlers already
+               walk between all three, and a player who starts the script at
+               the guild door -- the obvious place to start it -- otherwise
+               fell through to the generic implementation, which has no idea
+               where the guild is and simply stands there. */
+            if (getX() > 262 && getX() < 278 && getY() > 3381 && getY() < 3401) {
+                return true;
+            }
+            return isInMineEntry() || isInBankArea();
         }
         
         private void walkNearLadder() {
@@ -580,7 +678,12 @@ public final class S_Miner extends Script
         }
 
         private boolean isInBankArea(int x, int y) {
-            return inArea(x, y, 280, 564, 286, 573);
+            /* East edge is 288, not 286: the bank's own doorway sits at
+               x 287-288, and a trip that ended standing in it used to fall
+               through to the "walk to the bank" branch, which clicked the
+               already-open door forever instead of talking to a banker.
+               The bankers themselves stand at x 282-285, y 566-573. */
+            return inArea(x, y, 280, 563, 288, 574);
         }
 
         private boolean isInBankArea() {
@@ -710,14 +813,25 @@ public final class S_Miner extends Script
             frame.setResizable(false);
             frame.pack();
         }
-        frame.setLocationRelativeTo(null);
-        frame.toFront();
-        frame.requestFocus();
-        frame.setVisible(true);
+        loadConfig();
+        /* A person starting the script always gets the window, saved settings
+           already selected underneath -- OK overwrites them. An unattended
+           start skips it: nobody is there to click. Unless there is nothing
+           saved, in which case the window is the only way to configure this
+           at all and has to appear regardless. */
+        if (!isUnattended() || rocks == null) {
+            frame.setLocationRelativeTo(null);
+            frame.toFront();
+            frame.requestFocus();
+            frame.setVisible(true);
+        }
     }
 
     @Override
     public int main() {
+        if (rocks == null) {
+            return 1000;   // config window not confirmed yet
+        }
         int ret = _premain();
         if (ret != -1) {
             return ret;
@@ -1052,18 +1166,11 @@ public final class S_Miner extends Script
         if (command.equals("OK")) {
             if (frame.equals(_getWindow((Component) e.getSource()))) {
                 try {
-                    int rock_count = list_rocks.getItemCount();
-                    if (rock_count <= 0) {
+                    if (list_rocks.getItemCount() <= 0) {
                         throw new Exception("no rocks selected");
                     }
-                    rocks = new int[rock_count][];
-                    for (int i = 0; i < rock_count; ++i) {
-                        rocks[i] = map_rocks.get(list_rocks.getItem(i));
-                    }
-                    if (cb_bank.getState()) {
-                        init_path = false;
-                        banked_count = new int[bank_ids.length];
-                    }
+                    applyConfig();
+                    saveConfig();
                 } catch (Throwable t) {
                     System.out.println(t.getClass().getSimpleName() + ": " + t.getMessage());
                 }

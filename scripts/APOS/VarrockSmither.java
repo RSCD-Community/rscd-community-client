@@ -213,8 +213,22 @@ public final class VarrockSmither extends Script
 		}
 
 		int item = itemFor( activeBar );
+		int have = getInventoryCount( activeBar );
 
-		if ( item != -1 && getInventoryCount( activeBar ) >= BARS_NEEDED[item] )
+		/* Too few bars left for the preferred item (say 2 bars toward a
+		   3-bar kite shield): finish them off as daggers rather than
+		   carting them back and forth forever. */
+		if ( item != -1 && have > 0 && have < BARS_NEEDED[item] )
+		{
+			int[] levels = ( activeBar == IRON_BAR ) ? IRON_LEVELS : BRONZE_LEVELS;
+
+			if ( getLevel( 13 ) >= levels[ITEM_DAGGER] )
+			{
+				item = ITEM_DAGGER;
+			}
+		}
+
+		if ( item != -1 && have >= BARS_NEEDED[item] )
 		{
 			return smith( item );
 		}
@@ -306,12 +320,6 @@ public final class VarrockSmither extends Script
 
 		bankTime = -1L;
 
-		if ( ! ensureFromBank( HAMMER, "hammer" )
-			|| ! ensureFromBank( SLEEPING_BAG, "sleeping bag" ) )
-		{
-			return random( 1000, 2000 );
-		}
-
 		/*
 		 * The progression decision, made fresh every visit: iron the moment
 		 * smithing is 15 and the bank still holds iron bars, bronze while it
@@ -342,7 +350,9 @@ public final class VarrockSmither extends Script
 			activeBar = nextBar;
 		}
 
-		/* Everything that is not the kit or the working bar goes back. */
+		/* Everything that is not the kit or the working bar goes back -
+		   deposits before withdrawals, always, so the kit and the bars
+		   have room to come out. */
 		for ( int i = 0; i < getInventoryCount(); i++ )
 		{
 			int id = getInventoryId( i );
@@ -354,11 +364,18 @@ public final class VarrockSmither extends Script
 			}
 		}
 
-		int space = getEmptySlots();
-
-		if ( space > 0 )
+		if ( ! ensureFromBank( HAMMER, "hammer" )
+			|| ! ensureFromBank( SLEEPING_BAG, "sleeping bag" ) )
 		{
-			withdraw( activeBar, Math.min( space, bankCount( activeBar ) ) );
+			return random( 1000, 2000 );
+		}
+
+		int space  = getEmptySlots();
+		int inBank = bankCount( activeBar );
+
+		if ( space > 0 && inBank > 0 )
+		{
+			withdraw( activeBar, Math.min( space, inBank ) );
 			return random( 1000, 1500 );
 		}
 
@@ -413,15 +430,6 @@ public final class VarrockSmither extends Script
 
 		walkTo( BANK[0], BANK[1] );
 		return random( 1000, 1500 );
-	}
-
-	@Override
-	public void walkTo( int x, int y )
-	{
-		if ( ! isWalking() )
-		{
-			super.walkTo( x, y );
-		}
 	}
 
 	@Override

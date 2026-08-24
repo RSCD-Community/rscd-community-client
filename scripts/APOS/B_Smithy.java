@@ -23,6 +23,20 @@ public class B_Smithy extends Script {
     private String filename;
     private Item item;
 
+    /* Remembered answers to the two setup dialogs.
+     *
+     * A script that only asks its questions through a modal dialog cannot
+     * survive its own restart: the login watchdog brings it back with
+     * nobody sitting at the machine, init() pops the dialog again, and it
+     * hangs there until a human clicks it -- which from the outside looks
+     * exactly like the config window "looping". Writing the two answers to
+     * disk means an unattended restart reads them back and carries on
+     * where it left off. Delete the file (or run it attended) to be asked
+     * again. */
+    private static final java.io.File CONFIG = new java.io.File("script-bin", "B_Smithy.cfg");
+    private static final int[] BAR_IDS = {169, 170, 171, 173, 174, 408};
+    private static final String[] BAR_NAMES = {"Bronze", "Iron", "Steel", "Mithril", "Adamant", "Runite"};
+
     public B_Smithy(Extension e) {
         super(e);
     }
@@ -30,56 +44,111 @@ public class B_Smithy extends Script {
     @Override
     public void init(String s) {
         items = 0;
+        current_key = 0;
         smithing = -1L;
         banking = -1L;
         inventory = new int[MAX_INV_SIZE];
         initial_xp = new int[SKILL.length];
         screenshot = new long[4];
 
-        int[] bar_ids = {169, 170, 171, 173, 174, 408};
-        String[] bar_names = {"Bronze", "Iron", "Steel", "Mithril", "Adamant", "Runite"};
-        int option = JOptionPane.showOptionDialog(null, "What type of bars would you like to use?", "Blood's Smithy", JOptionPane.OK_OPTION, JOptionPane.QUESTION_MESSAGE, null, bar_names, bar_names[5]);
-        Item[] items = new Item[19];
-        if (option < 0 || option > items.length - 1) {
-            stopScript();
+        int bar = -1, pick = -1;
+        int[] saved = loadConfig();
+        if (saved != null) {
+            bar = saved[0];
+            pick = saved[1];
         }
-        items[0] = new Item(bar_ids[option], bar_names[option] + " Dagger", 1, 1, 0, 0);
-        items[1] = new Item(bar_ids[option], bar_names[option] + " Axe", 1, 1, 0, 3, 0);
-        items[2] = new Item(bar_ids[option], bar_names[option] + " Mace", 1, 1, 0, 4);
-        items[3] = new Item(bar_ids[option], bar_names[option] + " Medium Helmet", 1, 1, 1, 0, 0);
-        items[4] = new Item(bar_ids[option], bar_names[option] + " Short Sword", 1, 1, 0, 2, 0);
-        items[5] = new Item(bar_ids[option], bar_names[option] + " Dart Tips", 1, 7, 2, 1);
-        items[6] = new Item(bar_ids[option], bar_names[option] + " Arrow Heads", 1, 10, 2, 0);
-        items[7] = new Item(bar_ids[option], bar_names[option] + " Scimitar", 2, 1, 0, 2, 2);
-        items[8] = new Item(bar_ids[option], bar_names[option] + " Long Sword", 2, 1, 0, 2, 1);
-        items[9] = new Item(bar_ids[option], bar_names[option] + " Large Helmet", 2, 1, 1, 0, 1);
-        items[10] = new Item(bar_ids[option], bar_names[option] + " Throwing Knife", 1, 2, 0, 1);
-        items[11] = new Item(bar_ids[option], bar_names[option] + " Square Shield", 2, 1, 1, 1, 0);
-        items[12] = new Item(bar_ids[option], bar_names[option] + " Battle Axe", 3, 1, 0, 3, 1);
-        items[13] = new Item(bar_ids[option], bar_names[option] + " Chain Body", 3, 1, 1, 2, 0);
-        items[14] = new Item(bar_ids[option], bar_names[option] + " Kite Shield", 3, 1, 1, 1, 1);
-        items[15] = new Item(bar_ids[option], bar_names[option] + " 2h Sword", 3, 1, 0, 2, 3);
-        items[16] = new Item(bar_ids[option], bar_names[option] + " Plate Skirt", 3, 1, 1, 2, 3);
-        items[17] = new Item(bar_ids[option], bar_names[option] + " Plate Legs", 3, 1, 1, 2, 2);
-        items[18] = new Item(bar_ids[option], bar_names[option] + " Plate Body", 5, 1, 1, 2, 1);
-        JPanel panel = new JPanel();
-        panel.add(new JLabel("What item would you like to make?"));
-        DefaultComboBoxModel<String> cb = new DefaultComboBoxModel<String>();
-        for (Item item : items) {
-            cb.addElement(item.getItemName());
+        /* Only ask when there is somebody there to answer. */
+        if (!isUnattended() || saved == null) {
+            bar = JOptionPane.showOptionDialog(null, "What type of bars would you like to use?", "Blood's Smithy", JOptionPane.OK_OPTION, JOptionPane.QUESTION_MESSAGE, null, BAR_NAMES, BAR_NAMES[5]);
+            if (bar < 0 || bar > BAR_NAMES.length - 1) {
+                stopScript();
+                return;
+            }
+            Item[] choices = buildItems(bar);
+            JPanel panel = new JPanel();
+            panel.add(new JLabel("What item would you like to make?"));
+            DefaultComboBoxModel<String> cb = new DefaultComboBoxModel<String>();
+            for (Item choice : choices) {
+                cb.addElement(choice.getItemName());
+            }
+            JComboBox<String> comboBox = new JComboBox<String>(cb);
+            panel.add(comboBox);
+            if (JOptionPane.showConfirmDialog(null, panel, "Item selection", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) != JOptionPane.OK_OPTION) {
+                stopScript();
+                return;
+            }
+            pick = comboBox.getSelectedIndex();
+            saveConfig(bar, pick);
         }
-        JComboBox<String> comboBox = new JComboBox<String>(cb);
-        panel.add(comboBox);
-        option = JOptionPane.showConfirmDialog(null, panel, "Item selection", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
-        if (option == JOptionPane.OK_OPTION) {
-            item = items[comboBox.getSelectedIndex()];
-        } else {
-            stopScript();
+        if (bar < 0 || pick < 0) {
+            return;     /* main() idles rather than dereferencing a null item */
+        }
+        item = buildItems(bar)[pick];
+    }
+
+    /** The nineteen things an anvil will make out of one metal. */
+    private Item[] buildItems(int bar) {
+        int id = BAR_IDS[bar];
+        String name = BAR_NAMES[bar];
+        Item[] out = new Item[19];
+        out[0] = new Item(id, name + " Dagger", 1, 1, 0, 0);
+        out[1] = new Item(id, name + " Axe", 1, 1, 0, 3, 0);
+        out[2] = new Item(id, name + " Mace", 1, 1, 0, 4);
+        out[3] = new Item(id, name + " Medium Helmet", 1, 1, 1, 0, 0);
+        out[4] = new Item(id, name + " Short Sword", 1, 1, 0, 2, 0);
+        out[5] = new Item(id, name + " Dart Tips", 1, 7, 2, 1);
+        out[6] = new Item(id, name + " Arrow Heads", 1, 10, 2, 0);
+        out[7] = new Item(id, name + " Scimitar", 2, 1, 0, 2, 2);
+        out[8] = new Item(id, name + " Long Sword", 2, 1, 0, 2, 1);
+        out[9] = new Item(id, name + " Large Helmet", 2, 1, 1, 0, 1);
+        out[10] = new Item(id, name + " Throwing Knife", 1, 2, 0, 1);
+        out[11] = new Item(id, name + " Square Shield", 2, 1, 1, 1, 0);
+        out[12] = new Item(id, name + " Battle Axe", 3, 1, 0, 3, 1);
+        out[13] = new Item(id, name + " Chain Body", 3, 1, 1, 2, 0);
+        out[14] = new Item(id, name + " Kite Shield", 3, 1, 1, 1, 1);
+        out[15] = new Item(id, name + " 2h Sword", 3, 1, 0, 2, 3);
+        out[16] = new Item(id, name + " Plate Skirt", 3, 1, 1, 2, 3);
+        out[17] = new Item(id, name + " Plate Legs", 3, 1, 1, 2, 2);
+        out[18] = new Item(id, name + " Plate Body", 5, 1, 1, 2, 1);
+        return out;
+    }
+
+    /** {bar index, item index}, or null if there is nothing usable saved. */
+    private int[] loadConfig() {
+        java.io.BufferedReader in = null;
+        try {
+            in = new java.io.BufferedReader(new java.io.FileReader(CONFIG));
+            int bar = Integer.parseInt(in.readLine().trim());
+            int pick = Integer.parseInt(in.readLine().trim());
+            if (bar < 0 || bar >= BAR_NAMES.length || pick < 0 || pick > 18) {
+                return null;
+            }
+            return new int[]{bar, pick};
+        } catch (Exception e) {
+            return null;
+        } finally {
+            try { if (in != null) in.close(); } catch (Exception e) { }
+        }
+    }
+
+    private void saveConfig(int bar, int pick) {
+        java.io.PrintWriter out = null;
+        try {
+            out = new java.io.PrintWriter(new java.io.FileWriter(CONFIG));
+            out.println(bar);
+            out.println(pick);
+        } catch (Exception e) {
+            System.out.println("[B_Smithy] Could not save config: " + e);
+        } finally {
+            if (out != null) out.close();
         }
     }
 
     @Override
     public int main() {
+        if (item == null) {
+            return 1000;    /* never configured -- idle, don't crash */
+        }
         if (initial_xp[3] == 0) {
             for (int i = 0; i < SKILL.length; i++) {
                 initial_xp[i] = getXpForLevel(i);
@@ -116,8 +185,19 @@ public class B_Smithy extends Script {
         if (getInventoryCount(item.getBarID()) >= item.getBarsRequired()) {
             if (isReachable(SMITHY[0], SMITHY[1])) {
                 if (isQuestMenu()) {
-                    answer(item.getKeys()[current_key]);
-                    current_key++;
+                    /* One menu per key, and the chain WRAPS. current_key
+                       used to only ever count up, so the first item came
+                       out fine and the second walked straight off the end
+                       of the array -- an arrow-head order is two menus
+                       deep, so it made exactly one batch and then threw on
+                       every tick after. The counter belongs to the current
+                       order, not to the session. */
+                    int[] keys = item.getKeys();
+                    if (current_key >= keys.length) {
+                        current_key = 0;
+                    }
+                    answer(keys[current_key]);
+                    current_key = (current_key + 1) % keys.length;
                     smithing = System.currentTimeMillis();
                 }
                 if (System.currentTimeMillis() > smithing + 5000L) {
@@ -126,6 +206,12 @@ public class B_Smithy extends Script {
                 if (smithing != -1L) {
                     return VROOOOM;
                 }
+                /* A fresh order starts at the top of the menu chain,
+                   whatever happened to the last one -- an order abandoned
+                   half way (out of bars, a mistimed click) would otherwise
+                   leave the counter parked mid-chain and answer the next
+                   order's first menu with the wrong option. */
+                current_key = 0;
                 useItemOnObject(item.getBarID(), ANVIL);
                 smithing = System.currentTimeMillis();
                 return VROOOOM;

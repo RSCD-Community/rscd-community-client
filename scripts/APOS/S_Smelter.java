@@ -83,12 +83,68 @@ public final class S_Smelter extends Script
     private Frame frame;
     private Choice choice_loc;
     private List list_bar;
-    
+
+    /*
+     * The login-restart machinery replays recorded prompt answers, but this
+     * script interviews through its own AWT window, which nothing can click
+     * for an empty chair -- an automatic restart used to come up with bar and
+     * furnace_point null, throw on the first coordinate check, and loop
+     * crash -> resume -> config window forever. Same cure as VarrockMiner:
+     * OK persists the choices, init() restores them, and an unattended start
+     * skips the window entirely.
+     */
+    private static final java.io.File CONFIG =
+        new java.io.File("script-bin", "S_Smelter.cfg");
+
     public S_Smelter(Extension ex) {
         super(ex);
         pw = new PathWalker(ex);
     }
-    
+
+    private void saveConfig(int loc_index, int bar_index) {
+        try {
+            java.io.PrintWriter out = new java.io.PrintWriter(CONFIG, "UTF-8");
+            out.println(loc_index);
+            out.println(bar_index);
+            out.close();
+        } catch (Exception e) {
+            System.out.println("[S_Smelter] Could not save the configuration: " + e);
+        }
+    }
+
+    private void loadConfig() {
+        if (!CONFIG.isFile()) {
+            return;
+        }
+        try {
+            java.io.BufferedReader in = new java.io.BufferedReader(
+                new java.io.InputStreamReader(
+                    new java.io.FileInputStream(CONFIG), "UTF-8"));
+            int li = Integer.parseInt(in.readLine().trim());
+            int bi = Integer.parseInt(in.readLine().trim());
+            in.close();
+            if (li < 0 || li >= loc_names.length || bi < 0 || bi >= bars.length) {
+                return;
+            }
+            applyConfig(li, bi);
+            choice_loc.select(li);
+            list_bar.select(bi);
+            System.out.println("[S_Smelter] Restored the saved configuration.");
+        } catch (Exception e) {
+            System.out.println("[S_Smelter] Saved configuration unreadable, ignoring it: " + e);
+        }
+    }
+
+    private void applyConfig(int loc_index, int bar_index) {
+        Point fp = furnace_locs[loc_index];
+        Point bp = bank_locs[loc_index];
+        furnace_point = fp;
+        bar = bars[bar_index];
+        pw.init(null);
+        to_bank = pw.calcPath(fp.x, fp.y, bp.x, bp.y);
+        from_bank = pw.calcPath(bp.x, bp.y, fp.x, fp.y);
+    }
+
     @Override
     public void init(String params) {
         menu_time = -1L;
@@ -128,14 +184,26 @@ public final class S_Smelter extends Script
             frame.add(panel_b, BorderLayout.SOUTH);
             frame.setSize(270, 240);
         }
-        frame.setLocationRelativeTo(null);
-        frame.toFront();
-        frame.requestFocus();
-        frame.setVisible(true);
+        loadConfig();
+        /* A person starting the script always gets the window, saved settings
+           already selected underneath -- OK overwrites them. An unattended
+           start (login restart, the panel's Play replay) skips it: nobody is
+           there to click, and the restored settings are the point. Unless
+           there ARE no restored settings -- then the window is the only way
+           this script can ever be configured, so it appears regardless. */
+        if (!isUnattended() || bar == null) {
+            frame.setLocationRelativeTo(null);
+            frame.toFront();
+            frame.requestFocus();
+            frame.setVisible(true);
+        }
     }
 
     @Override
     public int main() {
+        if (bar == null) {
+            return 1000;   // config window not confirmed yet
+        }
         if (start_time == -1L) {
             start_time = System.currentTimeMillis();
         }
@@ -305,13 +373,12 @@ public final class S_Smelter extends Script
     public void actionPerformed(ActionEvent e) {
         if (e.getActionCommand().equals("OK")) {
             int li = choice_loc.getSelectedIndex();
-            Point fp = furnace_locs[li];
-            Point bp = bank_locs[li];
-            furnace_point = fp;
-            bar = bars[list_bar.getSelectedIndex()];
-            pw.init(null);
-            to_bank = pw.calcPath(fp.x, fp.y, bp.x, bp.y);
-            from_bank = pw.calcPath(bp.x, bp.y, fp.x, fp.y);
+            int bi = list_bar.getSelectedIndex();
+            if (bi < 0) {
+                return;   // no bar picked yet; keep the window up
+            }
+            applyConfig(li, bi);
+            saveConfig(li, bi);
         }
         frame.setVisible(false);
     }
