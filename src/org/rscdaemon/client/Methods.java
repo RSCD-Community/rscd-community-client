@@ -1314,9 +1314,14 @@ public abstract class Methods {
 
    /** Returns true if you are currently walking */
    public final boolean IsWalking() {
-      /* stepCount is how many waypoints are left in the walk the server sent
-         us; anything above zero means we are still moving. */
-      return this.rs.ourPlayer != null && this.rs.ourPlayer.stepCount > 0;
+      /* stepCount is NOT this -- it is the walk-animation frame counter and
+         it only ever counts up, so testing it made this permanently true
+         after the first step ever taken (and silently ate every walkTo in
+         scripts that guard on it). The engine's own movement loop considers
+         a mob in motion while its waypoint read index hasn't caught up to
+         the write index; that is the test that actually goes false again. */
+      Mob p = this.rs.ourPlayer;
+      return p != null && p.waypointEndSprite != (p.waypointCurrent + 1) % 10;
    }
 
    /** Returns true if your in combat with a player rather than npc */
