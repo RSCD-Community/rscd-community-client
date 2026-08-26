@@ -3207,7 +3207,16 @@ public class Camera {
 
    /* Makes sure texture i has rendered pixels, evicting the least-recently
       used texture of the same size when its pool (texturePixelPool64/128) is
-      exhausted. textureLastUsed/textureUseCounter implement the LRU clock. */
+      exhausted. textureLastUsed/textureUseCounter implement the LRU clock.
+
+      The "no victim found" branches are not dead code, and the sentinel they
+      start from has to be Long.MAX_VALUE rather than a round billion. The use
+      counter climbs forever; a client left running for a few days pushes every
+      textureLastUsed past a smaller sentinel, no candidate ever compares less
+      than it, and the search falls out with the victim index still at its
+      starting value -- handing back a null buffer that kills the render thread
+      the moment setTexturePixels writes to it. Allocating instead costs one
+      array in a case that should never happen anyway. */
    public void prepareTexture(int i) {
       if (i >= 0) {
          this.textureLastUsed[i] = textureUseCounter++;
@@ -3222,8 +3231,8 @@ public class Camera {
                   }
                }
 
-               long l = 1073741824L;
-               int i1 = 0;
+               long l = Long.MAX_VALUE;
+               int i1 = -1;
 
                for (int k1 = 0; k1 < this.textureCount; k1++) {
                   if (k1 != i && this.textureDimension[k1] == 0 && this.texturePixels[k1] != null && this.textureLastUsed[k1] < l) {
@@ -3232,8 +3241,12 @@ public class Camera {
                   }
                }
 
-               this.texturePixels[i] = this.texturePixels[i1];
-               this.texturePixels[i1] = null;
+               if (i1 == -1) {
+                  this.texturePixels[i] = new int[16384];
+               } else {
+                  this.texturePixels[i] = this.texturePixels[i1];
+                  this.texturePixels[i1] = null;
+               }
                this.setTexturePixels(i);
             } else {
                for (int k = 0; k < this.texturePixelPool128.length; k++) {
@@ -3245,8 +3258,8 @@ public class Camera {
                   }
                }
 
-               long l1 = 1073741824L;
-               int j1 = 0;
+               long l1 = Long.MAX_VALUE;
+               int j1 = -1;
 
                for (int i2 = 0; i2 < this.textureCount; i2++) {
                   if (i2 != i && this.textureDimension[i2] == 1 && this.texturePixels[i2] != null && this.textureLastUsed[i2] < l1) {
@@ -3255,8 +3268,12 @@ public class Camera {
                   }
                }
 
-               this.texturePixels[i] = this.texturePixels[j1];
-               this.texturePixels[j1] = null;
+               if (j1 == -1) {
+                  this.texturePixels[i] = new int[65536];
+               } else {
+                  this.texturePixels[i] = this.texturePixels[j1];
+                  this.texturePixels[j1] = null;
+               }
                this.setTexturePixels(i);
             }
          }
