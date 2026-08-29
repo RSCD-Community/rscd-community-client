@@ -518,6 +518,51 @@ documentation: the first argument is documented as an inventory slot and both
 call sites pass an item id — one of them after working the slot out and
 discarding it. Both readings are accepted, slot first.
 
+## Driving the client from outside it
+
+The three tiers above all share a limitation: the decisions live in a file
+that has to be written, compiled and restarted before it can change its mind.
+For a lot of jobs that is exactly right. For anything exploratory -- walking a
+new quest route, checking whether a door actually opens from the side the map
+says it does -- it means a recompile per question.
+
+So there is a fourth way in, built out of the other three rather than beside
+them. `scripts/APOS/Agent.java` is an ordinary APOS script that opens a
+loopback socket and does nothing on its own: it takes one command per line,
+calls the matching `Script` method, and returns the answer as JSON. Dispatch
+is by reflection, so every verb the scripting API has, the socket has, the day
+the API gains it.
+
+    ./run.sh --bot --user=name --pass=secret --script=Agent
+    tools/agent.py state
+    tools/agent.py scene 15
+    tools/agent.py walkTo 330 557
+
+`--bot` is the other half. There is no headless mode and this does not add
+one -- a bot client is an ordinary client with an ordinary window. What `--bot`
+does is fill in the login box and start one script, so a character can be
+brought up without a person at the keyboard. It needs `--user=` and `--pass=`
+to do anything; on its own it is ignored.
+
+Two commands are synthesised on top of the API because they answer the
+question a driver actually asks:
+
+- `state` -- position, health, fatigue, levels and inventory in one trip.
+- `scene [radius]` -- the npcs, objects, wall objects, ground items and
+  players within *radius* tiles, as flat tuples rather than named fields.
+  The names would be most of the bytes, and a crowded bank at radius 20 is a
+  couple of kilobytes this way.
+
+`tools/examples/feathers.py` is a complete gathering bot written this way --
+kill, loot, bank, repeat -- with no compiled script behind it. Two habits in
+it are worth copying. An npc index is only true for the tick it was read on,
+so look it up and use it in the same breath. And wait on conditions the game
+can confirm, never on a timer: a bot built on sleeps works right up until the
+server has a slow minute.
+
+The socket serves one connection at a time, deliberately. Two drivers issuing
+actions to one character is not a thing worth making work.
+
 ## Stat panel tabs
 
 Stats | Quests, which is what Jagex shipped and all they shipped. RSCD had

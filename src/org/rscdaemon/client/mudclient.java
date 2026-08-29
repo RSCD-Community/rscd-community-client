@@ -179,6 +179,22 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
    private static final int AUTO_LOGIN_WAIT_MAX = 3000;
    private int autoLoginTicks = AUTO_LOGIN_WAIT;
    private int autoLoginTries;
+   /*
+    * Unattended mode -- "--bot --user=name --pass=secret --script=Name".
+    *
+    * A client started this way signs itself in and starts one script, and is
+    * otherwise an ordinary client: same window, same protocol, same scripting
+    * API. There is no headless mode and this does not add one. What it adds
+    * is the ability to bring a character up without a person at the keyboard,
+    * which is all that stood between the scripting API and being drivable
+    * from outside the process (see scripts/APOS/Agent.java).
+    *
+    * These are static because main() learns them before any instance exists.
+    */
+   static String botUser = "";
+   static String botPass = "";
+   static String botScript = "";
+   private boolean botScriptStarted;
    int lastWalkTimeout;
    private String[] menuText1;
    private boolean duelOpponentAccepted;
@@ -994,6 +1010,44 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
       the very first cast, before any sample exists at all. Biases toward
       slightly late rather than slightly early either way -- a rejected cast
       costs a full cycle; a few extra ms of margin costs nothing. */
+   /*
+    * Autocast keeps Charge up for the god spells.
+    *
+    * Charge (spell 48, magic 80) raises the max hit of Claws of Guthix,
+    * Saradomin strike and Flames of Zamorak from 18 to 25, and it lasts ten
+    * minutes -- Player.isCharged() on the server. Nothing announces that it
+    * has run out except a grey "You are not charged!" line arriving in among
+    * the hit splats, so in practice a fight carries on at two thirds damage
+    * for however long it takes to notice. Autocast is already repeating the
+    * spell; it may as well keep the buff that spell is worth having.
+    *
+    * The state comes from the server's own messages rather than a timer
+    * started when Charge is cast: the god spells say so outright when the
+    * buff is gone, which is more reliable than anything the client could
+    * infer. The ten minutes is kept as well, so the recast goes out before a
+    * cast is wasted rather than after.
+    *
+    * Only ever fires in place of a cast that was going out anyway, and only
+    * while a god spell is the thing being repeated -- it is not a general
+    * buff keeper, and it never touches lastCastSpell or the target, so what
+    * autocast repeats is still only ever what the player last cast.
+    */
+   private static final int SPELL_CHARGE = 48;
+   private static final int[] GOD_SPELLS = { 33, 34, 35 };
+   private static final long CHARGE_DURATION_MS = 600000L;
+   /* Far enough apart that a refusal we cannot see the cause of -- standing
+      on a game object is the common one, and a step in any direction cures
+      it -- costs one cast rather than every cast. */
+   private static final long CHARGE_RETRY_MS = 8000L;
+   /* And then give up. A missing god staff is not going to fix itself, and a
+      player who has toggled autocast on and is watching it refuse to charge
+      should get three lines about it, not three a minute. Cleared by a
+      successful charge or by toggling autocast off and on again. */
+   private static final int CHARGE_MAX_FAILURES = 3;
+   private long chargeExpiry;
+   private long chargeAttemptTime;
+   int chargeFailures;
+
    private static final long SPELL_COOLDOWN_MS = 1200L;
    private static final long MIN_ROUND_TRIP_MS = 150L;
    /* The running-maximum needs a ceiling as much as a floor: the "next packet
@@ -1059,9 +1113,30 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
    public static final void main(String[] args) throws Exception {
       String joinUri = null;
       for (String arg : args) {
-         if (arg != null && arg.regionMatches(true, 0, "rscd://", 0, 7)) {
-            joinUri = arg;
+         if (arg == null) {
+            continue;
          }
+         if (arg.regionMatches(true, 0, "rscd://", 0, 7)) {
+            joinUri = arg;
+         } else if (arg.startsWith("--user=")) {
+            botUser = arg.substring(7);
+         } else if (arg.startsWith("--pass=")) {
+            botPass = arg.substring(7);
+         } else if (arg.startsWith("--script=")) {
+            botScript = arg.substring(9);
+         }
+      }
+      /* --bot on its own is not enough to sign anybody in; the credentials
+         are. It stays accepted, and required, so that starting a client this
+         way is obvious in a process list and in a shell history. */
+      if (!hasFlag(args, "--bot")) {
+         botUser = "";
+         botPass = "";
+         botScript = "";
+      } else if (botUser.length() == 0 || botPass.length() == 0) {
+         System.out.println("--bot needs --user= and --pass= as well; starting normally.");
+         botUser = "";
+         botPass = "";
       }
 
       // May not exist -- initConfig(String) falls back to its own defaults.
@@ -1125,12 +1200,21 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
     * configures itself for an applet -- loopback asset host, nothing listening,
     * dead the instant it tries to fetch. So look next to the jar as well.
     */
+   private static boolean hasFlag(String[] args, String flag) {
+      for (String arg : args) {
+         if (flag.equals(arg)) {
+            return true;
+         }
+      }
+      return false;
+   }
+
    private static File settingsFile(String[] args) {
       // The settings file is the first argument that is not a join link --
       // when the OS scheme handler starts us, the link is all we get.
       String name = "settings.ini";
       for (String arg : args) {
-         if (arg != null && !arg.regionMatches(true, 0, "rscd://", 0, 7)) {
+         if (arg != null && !arg.startsWith("--") && !arg.regionMatches(true, 0, "rscd://", 0, 7)) {
             name = arg;
             break;
          }
@@ -1420,7 +1504,22 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
     * launched client never starts anything on its own.
     */
    private void pumpScriptResume() {
+      /* The first start of an unattended session's script. Everything after
+         this -- crash, relog, server outage -- is the resume path below,
+         which already knows how to bring a script back. */
       ScriptRunner runner = this.scripts();
+      if (botScript.length() > 0 && !this.botScriptStarted) {
+         this.botScriptStarted = true;
+         /* Swallow the restart the login just queued before starting. The
+            resume path exists for a script that was already running when the
+            connection dropped; this is the first start of the session, and
+            letting both fire launches the script twice -- which is invisible
+            for most scripts and fatal for one that owns a socket, since the
+            instance left running is not the one holding the port. */
+         runner.pump();
+         this.startScript(botScript);
+         return;
+      }
       String name = runner.pump();
       if (name == null) {
          return;
@@ -2208,6 +2307,19 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
        */
       /* Not while the Worlds screen is up: a player browsing for a different
          server is not waiting to be logged back into the old one. */
+      /*
+       * Unattended mode types into the login box for itself and then leans on
+       * AutoLogin for everything after, including coming back from a server
+       * restart. Re-seeded every tick rather than once at boot because
+       * logging out clears the fields, and a bot that logged out is still a
+       * bot waiting to come back.
+       */
+      if (botUser.length() > 0 && this.currentUser.length() == 0) {
+         this.currentUser = botUser;
+         this.currentPass = botPass;
+         this.autoLogin = true;
+      }
+
       if (this.autoLogin && this.loginScreenNumber != 4 && this.currentUser.length() > 0 && this.currentPass.length() > 0) {
          if (this.autoLoginTicks > 0) {
             this.autoLoginTicks--;
@@ -4047,7 +4159,30 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
          this.displayMessage(s, 3, 0);
       }
 
+      this.noteChargeMessage(s);
       this.dispatchServerMessage(s);
+   }
+
+   /*
+    * Charge's state, read off the server's own lines.
+    *
+    * All four of these are the server talking about this buff and nothing
+    * else, so matching the text is exact enough: the god spells complain
+    * when it has lapsed, Charge itself confirms when it lands, and the two
+    * refusals are the only reasons a cast of it is turned away for anything
+    * other than runes, which are checked before the packet goes out.
+    */
+   private void noteChargeMessage(String s) {
+      String t = s.toLowerCase();
+      if (t.indexOf("you feel charged with magical power") != -1) {
+         this.chargeExpiry = System.currentTimeMillis() + CHARGE_DURATION_MS;
+         this.chargeFailures = 0;
+      } else if (t.indexOf("you are not charged") != -1) {
+         this.chargeExpiry = 0L;
+      } else if (t.indexOf("you need to be wielding a god staff") != -1
+            || t.indexOf("you cannot charge here") != -1) {
+         this.chargeFailures++;
+      }
    }
 
    /*
@@ -5192,7 +5327,8 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
          if (this.autocastEnabled) {
             y += 12;
             this.gameGraphics.drawString("Autocast: @red@"
-                  + (this.lastCastSpellName != null ? this.lastCastSpellName : "Cast a spell to set"), 10, y, 1, 16777215);
+                  + (this.lastCastSpellName != null ? this.lastCastSpellName : "Cast a spell to set")
+                  + this.chargeOverlay(), 10, y, 1, 16777215);
          }
       }
    }
@@ -5378,6 +5514,14 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
          return;
       }
 
+      /* Spend this cast on Charge instead, if the god spell we are about to
+         repeat is going to land at two thirds strength without it. Takes the
+         cast slot rather than being squeezed in beside one -- the server
+         allows one spell per cooldown either way. */
+      if (this.tryAutoCharge()) {
+         return;
+      }
+
       int tileX = (target.currentX - 64) / this.magicLoc;
       int tileY = (target.currentY - 64) / this.magicLoc;
       this.walkToTile(this.sectionX, this.sectionY, tileX, tileY, true);
@@ -5386,6 +5530,75 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
       super.streamClass.add2ByteInt(this.autocastTargetIndex);
       super.streamClass.formatPacket();
       this.noteCastSent();
+   }
+
+   /* The tail of the autocast overlay line: how much of Charge is left, but
+      only while a god spell is the thing being repeated -- for every other
+      spell the buff does nothing and the number would just be noise. */
+   private String chargeOverlay() {
+      if (!isGodSpell(this.lastCastSpell)) {
+         return "";
+      }
+      long left = this.chargeExpiry - System.currentTimeMillis();
+      if (this.chargeFailures >= CHARGE_MAX_FAILURES) {
+         return " @whi@Charge: @red@off";
+      }
+      return left <= 0L
+            ? " @whi@Charge: @red@none"
+            : " @whi@Charge: @red@" + (left / 60000L + 1L) + "m";
+   }
+
+   private static boolean isGodSpell(int spellId) {
+      for (int i = 0; i < GOD_SPELLS.length; i++) {
+         if (GOD_SPELLS[i] == spellId) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   /* Do we hold everything Charge costs? Checked here so a cast is never
+      sent that the server can only refuse -- the refusal counts against the
+      give-up limit, and running low on blood runes is not a reason to stop
+      trying for the rest of the session. */
+   private boolean hasRunesForCharge() {
+      for (Entry e : EntityHandler.getSpellDef(SPELL_CHARGE).getRunesRequired()) {
+         if (!this.hasRequiredRunes((Integer)e.getKey(), (Integer)e.getValue())) {
+            return false;
+         }
+      }
+      return true;
+   }
+
+   /**
+    * Recast Charge, if autocast is repeating a god spell and the buff has
+    * lapsed. Returns true when a cast went out, so the caller can leave the
+    * god spell for the next cycle.
+    *
+    * Charge is a type-6 spell -- cast on the ground the player is standing
+    * on, packet 232, no target -- and deliberately does NOT go through
+    * rememberSpellCast: that would make Charge the spell autocast repeats
+    * and clear the target, which is the opposite of the point.
+    */
+   private boolean tryAutoCharge() {
+      if (!isGodSpell(this.lastCastSpell)
+            || this.chargeFailures >= CHARGE_MAX_FAILURES
+            || this.playerStatCurrent[6] < EntityHandler.getSpellDef(SPELL_CHARGE).getReqLevel()) {
+         return false;
+      }
+      long now = System.currentTimeMillis();
+      if (now < this.chargeExpiry || now - this.chargeAttemptTime < CHARGE_RETRY_MS) {
+         return false;
+      }
+      if (!this.hasRunesForCharge()) {
+         return false;
+      }
+      this.chargeAttemptTime = now;
+      super.streamClass.createPacket(232);
+      super.streamClass.add2ByteInt(SPELL_CHARGE);
+      super.streamClass.formatPacket();
+      this.noteCastSent();
+      return true;
    }
 
    private Mob findNpcByServerIndex(int serverIndex) {
@@ -7313,6 +7526,12 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
                         super.streamClass.add4ByteInt(priceNow);
                         super.streamClass.addString(Integer.toString(amount));
                         super.streamClass.formatPacket();
+                     } else {
+                        /* Trimmed to nothing: say why. The server owns this
+                           message ordinarily, but it never gets the chance --
+                           nothing was sent -- and a shop that redraws in
+                           silence reads as a broken shop. */
+                        this.displayMessage("@gry@ You don't have enough money to buy that!", 3, 0);
                      }
 
                      return;
@@ -7348,6 +7567,7 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
                         }
 
                         if (amount <= 0) {
+                           mudclient.this.displayMessage("@gry@ You don't have enough money to buy that!", 3, 0);
                            return;
                         }
 

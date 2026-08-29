@@ -564,6 +564,10 @@ final class ScriptPanel {
             break;
          case 4:
             this.rs.autocastEnabled = !this.rs.autocastEnabled;
+            /* Toggling it is how a player says "try again": autocast gives up
+               on recharging the god spells after a few refusals, and this is
+               the only way back from that short of relogging. */
+            this.rs.chargeFailures = 0;
             break;
          case 5:
             this.rs.statusOverlay = !this.rs.statusOverlay;
