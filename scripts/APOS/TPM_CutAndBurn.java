@@ -1,3 +1,4 @@
+import org.rscdaemon.client.*;
 import java.awt.BorderLayout;
 import java.awt.Button;
 import java.awt.Choice;
@@ -439,11 +440,17 @@ public final class TPM_CutAndBurn extends Script
 	{
         str = str.toLowerCase( Locale.ENGLISH );
 		   
-		if ( str.contains( "light a fire here" ) ) 
+		// Every way the ground can refuse the fire. "light a fire here" is
+		// the one this script was written against and is what the server says
+		// now; the other two are older wordings, kept so an out-of-date world
+		// does not leave the bot standing on a fern retrying forever.
+		if ( str.contains( "light a fire here" )
+		  || str.contains( "cannot do that here" )
+		  || str.contains( "move to a new area" ) )
 			move_time = System.currentTimeMillis();
 		
 		
-		if ( str.contains( "fire catches" ) )
+		if ( str.contains( "catch fire" ) )
 			fires++;
 		 
         if ( str.contains( "busy" ) ) 
