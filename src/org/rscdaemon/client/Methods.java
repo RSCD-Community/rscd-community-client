@@ -674,8 +674,29 @@ public abstract class Methods {
 
    /* ---------------- Communication Functions ---------------- */
 
-   /** Say the given message */
+   /**
+    * Say the given message out loud, in public chat.
+    *
+    * This used to go down sendChatString(), which is packet 90 -- the command
+    * channel the client uses for "::" lines. Scripts calling Speak() were
+    * therefore never heard by anyone: the words went to the command parser,
+    * which silently discarded whatever it did not recognise. Public chat is
+    * packet 145. Anything wanting the old behaviour wants Command() below.
+    */
    public final void Speak(String s) {
+      if (s != null && s.length() > 0) {
+         byte[] encoded = DataConversions.stringToByteArray(s);
+         this.rs.sendChatMessage(encoded, encoded.length);
+      }
+   }
+
+   /**
+    * Send a server command, the same thing typing "::something" does. Pass it
+    * without the leading "::" -- Command("item 53"), not Command("::item 53").
+    * Only useful to an account the server considers staff; everyone else gets
+    * an unknown-command reply.
+    */
+   public final void Command(String s) {
       if (s != null && s.length() > 0) {
          this.rs.sendChatString(s);
       }
