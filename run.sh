@@ -87,7 +87,61 @@ if [ ! -f rscd-client.jar ]; then
    fi
 fi
 
+# The JVM's own defaults are sized for a server, not for a game client: a
+# quarter of the machine's RAM as the heap ceiling, a parallel collector with a
+# thread per core, and a code cache and metaspace to match. The client's live
+# set is tiny -- around 25MB for a bot, well under 150MB with the 3D pipeline
+# running -- so those defaults cost hundreds of megabytes of committed memory
+# and a dozen idle GC threads for nothing. Cap them. SerialGC is the right
+# collector here for the same reason: one small heap, one mutator thread that
+# matters, pauses measured in single-digit milliseconds.
+#
+# A bot gets the tighter set because it does not render (see Config.RENDERLESS)
+# and so never allocates the geometry a player does. Measured on an idle bot:
+# 317MB RSS and 36 threads on the JVM defaults, 128MB and 25 threads with these.
+#
+# These are defaults, not a policy. Anything in JAVA_OPTS comes after them and
+# therefore wins, and setting a collector there suppresses SerialGC rather than
+# colliding with it ("Multiple garbage collectors selected" is a fatal error).
+#
+# The heap flags are a ceiling plus permission to give memory back: -Xms starts
+# small, the free-ratio pair lets the collector uncommit what a quiet client is
+# not using, and -Xmx is only the limit it may never pass. Without the ratios a
+# heap that grew once during asset loading stays committed for the whole
+# session, which on one measured bot was 65MB of resident memory holding 24MB
+# of live objects.
+#
+# TieredStopAtLevel=1 is for bots only: C1 compiles fast and small, C2 exists to
+# make hot loops faster and the hottest loop in this client is the renderer a
+# bot does not run. A player keeps both compilers.
+case " $* " in
+   *" --bot"*) CLIENT_OPTS="-Xms16m -Xmx96m -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30 -XX:MaxNewSize=8m -XX:TieredStopAtLevel=1 -XX:MaxMetaspaceSize=64m -Xss512k -XX:ReservedCodeCacheSize=48m" ;;
+   *) CLIENT_OPTS="-Xms32m -Xmx256m -XX:MinHeapFreeRatio=20 -XX:MaxHeapFreeRatio=40 -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=64m" ;;
+esac
+case "$JAVA_OPTS" in
+   *GC*) ;;
+   *) CLIENT_OPTS="$CLIENT_OPTS -XX:+UseSerialGC" ;;
+esac
+
+# A bot opens no window and needs no display: headless, so there is no X
+# connection, no Xvfb to keep running beside it and none of the AWT threads a
+# frame brings. It also never constructs a java.awt.Font, which is what was
+# really paying for the display -- finding out what Helvetica is called here
+# enumerates every installed font file, 18MB of it (see GameWindow.loadingFont).
+#
+# Not applied when JAVA_OPTS asks for rendering: -Drscd.render=1 turns a bot
+# back into a client that draws (Config.RENDERLESS), and that one wants its
+# window.
+case " $* " in
+   *" --bot"*)
+      case "$JAVA_OPTS" in
+         *rscd.render*) ;;
+         *) CLIENT_OPTS="$CLIENT_OPTS -Djava.awt.headless=true" ;;
+      esac
+      ;;
+esac
+
 # Arguments after -jar belong to the client (the settings file). System
 # properties have to go before it, so they come through JAVA_OPTS:
 #   JAVA_OPTS=-Drscd.cacheurl=http://localhost:8137/cache_data ./run.sh
-exec "$JAVA" $JAVA_OPTS -jar rscd-client.jar "$@"
+exec "$JAVA" $CLIENT_OPTS $JAVA_OPTS -jar rscd-client.jar "$@"

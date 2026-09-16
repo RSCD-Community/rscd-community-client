@@ -22,6 +22,23 @@ import java.io.IOException;
  */
 public class Config {
    public static String SERVER_IP;
+
+   /*
+    * True for an unattended --bot client: one that signs itself in, runs a
+    * script and has nobody watching it.
+    *
+    * A bot still needs every bit of game state -- the object and npc tables,
+    * the walkability map, the pathfinder -- but it has no use for a frame.
+    * Drawing one costs the whole 3D pipeline fifty times a second, and the
+    * buffers that pipeline needs are the largest thing in the heap. So a
+    * renderless client loads and plays the game exactly as any other client
+    * does, and simply never paints. A script cannot tell the difference:
+    * nothing in the scripting API reads pixels.
+    *
+    * -Drscd.render=1 forces painting back on for a bot, which is how you
+    * watch one on a screen when something looks wrong.
+    */
+   public static boolean RENDERLESS;
    public static String CONF_DIR;
    public static String MEDIA_DIR;
    /* Where scripts are read from. Relative paths resolve next to the jar. */

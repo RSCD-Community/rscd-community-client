@@ -64,6 +64,27 @@ public class Model {
    public boolean unlit = false;
    public boolean unpickable = false;
    public boolean projected = false;
+   /*
+    * A hollow model takes geometry and keeps none of it: addVertex,
+    * getOrAddVertex and addFace all succeed, store nothing and answer 0, so
+    * vertexCount and faceCount stay at zero for the model's whole life.
+    *
+    * This exists for the renderless bot client (see util/Config.RENDERLESS).
+    * The landscape is built by the same 650 lines of EngineHandle either way,
+    * because those lines do two jobs at once -- they lay out the terrain mesh
+    * *and* they compute the walkability map, the wall bits and the shadows
+    * that pathing and scripts depend on. Splitting them apart would be a
+    * rewrite of the one function nothing in this client can afford to get
+    * wrong. So the geometry half is sent to a model that throws it away, and
+    * the collision half is untouched.
+    *
+    * Answering 0 rather than -1 is the point: callers index straight into
+    * faceTag and their own side tables with whatever comes back
+    * (model.faceTag[i] = ...), and -1 is how a full model reports failure. A
+    * hollow model is allocated with capacity 1 precisely so that slot 0 is a
+    * real, writable slot and those stores land harmlessly.
+    */
+   public boolean hollow = false;
    private static int[] sinCosTable256 = new int[512];
    private static int[] sinCosTable1024 = new int[2048];
    private static byte[] base64Alphabet = new byte[64];
@@ -440,6 +461,10 @@ public class Model {
    }
 
    public int getOrAddVertex(int i, int j, int k) {
+      if (this.hollow) {
+         return 0;
+      }
+
       for (int l = 0; l < this.vertexCount; l++) {
          if (this.vertexX[l] == i && this.vertexY[l] == j && this.vertexZ[l] == k) {
             return l;
@@ -457,6 +482,10 @@ public class Model {
    }
 
    public int addVertex(int i, int j, int k) {
+      if (this.hollow) {
+         return 0;
+      }
+
       if (this.vertexCount >= this.maxVertices) {
          return -1;
       } else {
@@ -468,6 +497,10 @@ public class Model {
    }
 
    public int addFace(int i, int[] ai, int j, int k) {
+      if (this.hollow) {
+         return 0;
+      }
+
       if (this.faceCount >= this.maxFaces) {
          return -1;
       } else {

@@ -268,6 +268,17 @@ public abstract class GameWindowMiddleMan extends GameWindow {
    }
 
    protected final void gameBoxPrint(String s, String s1) {
+      /*
+       * The only caller is the reconnect notice, which a bot left running
+       * overnight sees more often than a player does. A renderless client has
+       * no window to put the box in, so the two lines go to the log instead --
+       * they are the message, and a bot's log is where somebody reads it.
+       */
+      if (Config.RENDERLESS) {
+         System.out.println(s + " " + s1);
+         return;
+      }
+
       Graphics g = this.getGraphics();
       Font font = new Font("Helvetica", 1, 15);
       /* Centre on the live canvas, not the 512x344 the box was born at --

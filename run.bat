@@ -60,10 +60,28 @@ if not exist rscd-client.jar (
    if errorlevel 1 exit /b 1
 )
 
+rem The JVM sizes its defaults for a server: a quarter of the machine RAM as
+rem the heap ceiling, a parallel collector with a thread per core, a matching
+rem code cache and metaspace. This client's live set is around 45MB for a bot
+rem and well under 150MB for a player, so those defaults cost hundreds of
+rem megabytes and a dozen idle GC threads for nothing. See run.sh for the
+rem measured numbers. Anything in JAVA_OPTS comes after these and wins.
+set "CLIENT_OPTS=-Xms32m -Xmx256m -XX:MinHeapFreeRatio=20 -XX:MaxHeapFreeRatio=40 -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=64m"
+echo %* | findstr /c:"--bot" >nul && set "CLIENT_OPTS=-Xms16m -Xmx96m -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30 -XX:MaxNewSize=8m -XX:TieredStopAtLevel=1 -XX:MaxMetaspaceSize=64m -Xss512k -XX:ReservedCodeCacheSize=48m"
+echo %JAVA_OPTS% | findstr /c:"GC" >nul || set "CLIENT_OPTS=%CLIENT_OPTS% -XX:+UseSerialGC"
+
+rem A bot opens no window and needs no display, so it runs headless: no AWT
+rem threads, and no java.awt.Font -- which is what was really costing, since
+rem naming Helvetica enumerates every installed font file (18MB; see
+rem GameWindow.loadingFont). Not applied when JAVA_OPTS asks for rendering.
+echo %* | findstr /c:"--bot" >nul && (
+   echo %JAVA_OPTS% | findstr /c:"rscd.render" >nul || set "CLIENT_OPTS=%CLIENT_OPTS% -Djava.awt.headless=true"
+)
+
 rem Arguments after -jar belong to the client (the settings file). System
 rem properties have to go before it, so they come through JAVA_OPTS:
 rem   set JAVA_OPTS=-Drscd.cacheurl=http://localhost:8137/cache_data
-"%JAVA%" %JAVA_OPTS% -jar rscd-client.jar %*
+"%JAVA%" %CLIENT_OPTS% %JAVA_OPTS% -jar rscd-client.jar %*
 if errorlevel 1 (
    echo.
    echo The client exited with an error -- the messages above say why. If it

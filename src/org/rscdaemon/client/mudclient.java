@@ -1139,6 +1139,13 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
          botPass = "";
       }
 
+      /* Nobody is watching an unattended client, so it does not draw. See
+         Config.RENDERLESS for what that does and does not skip. */
+      Config.RENDERLESS = botUser.length() > 0 && System.getProperty("rscd.render") == null;
+      if (Config.RENDERLESS) {
+         System.out.println("Renderless: no frames will be drawn (-Drscd.render=1 to watch).");
+      }
+
       // May not exist -- initConfig(String) falls back to its own defaults.
       Config.initConfig(settingsFile(args).getPath());
 
@@ -1175,15 +1182,26 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
          interior has always been one row shorter than the drawing surface. */
       mc.windowWidth = Math.max(512, Math.min(Config.settings().getInt("window_width", 512), 2560));
       mc.windowHeight = Math.max(334, Math.min(Config.settings().getInt("window_height", 334), 1440));
-      /* Claim the link listener before the window exists rather than after:
-         createWindow starts the game and does not come back, and a link that
-         arrives during a slow first asset download should still be answered. */
-      SingleInstance.listen(mc);
-      /* And the macOS route to the same place. There a clicked link is an Apple
-         event delivered to the app already running, not a second process with an
-         argument, so SingleInstance never sees it -- see MacJoinLinks. No-ops
-         everywhere else. */
-      MacJoinLinks.register(mc, joinUri);
+      /*
+       * Claim the link listener before the window exists rather than after:
+       * createWindow starts the game and does not come back, and a link that
+       * arrives during a slow first asset download should still be answered.
+       *
+       * A bot claims nothing. listen() writes its port into a lock file that
+       * says "this process answers join links", and whoever writes last wins,
+       * so a box running bots would hand a clicked rscd:// link to a bot
+       * instead of to the player's client -- and the bot would take it, since
+       * it is not signed in at the moment the link lands. Leaving it out also
+       * drops a thread, a socket and a shutdown hook per bot.
+       */
+      if (botUser.length() == 0) {
+         SingleInstance.listen(mc);
+         /* And the macOS route to the same place. There a clicked link is an
+            Apple event delivered to the app already running, not a second
+            process with an argument, so SingleInstance never sees it -- see
+            MacJoinLinks. No-ops everywhere else. */
+         MacJoinLinks.register(mc, joinUri);
+      }
 
       // Nothing is on disk to show yet -- startGame() puts the splash up as
       // soon as it has been downloaded.
@@ -1962,6 +1980,33 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
     * It also means there is no local copy to fall back on, so a failure here
     * is fatal. That is the trade and it is the point of the design.
     */
+   /*
+    * Three of the fifteen assets exist only to be looked at or listened to,
+    * and a renderless client (util/Config.RENDERLESS) reads none of them:
+    * Loading.xml.data is the splash, models36.jag is the geometry the empty
+    * model table replaces, and sounds1.mem is the sound bank loadSounds()
+    * never opens. They are 3.4 MB of the 4.7 MB download.
+    *
+    * Not fetching them beats fetching and dropping them, which is what this
+    * used to do: the drop frees the bytes but the download still has to hold
+    * the whole file in a ByteArrayOutputStream first, and that peak is the
+    * high-water mark a fresh bot is measured at. It also takes 3.4 MB off the
+    * wire per bot, which matters when a box is starting a dozen of them.
+    *
+    * Anything added here must have no reader left in a renderless client --
+    * Assets.get throws rather than return null, so a missed reader fails
+    * loudly on the spot instead of drawing nothing.
+    */
+   private static boolean neededHere(String asset) {
+      if (!Config.RENDERLESS) {
+         return true;
+      }
+
+      return !asset.equals("Loading.xml.data")
+         && !asset.equals("models36.jag")
+         && !asset.equals("sounds1.mem");
+   }
+
    public final void loadcache(String s1) {
       this.drawLoadingBarText(1, "Fetching " + s1 + "..");
 
@@ -2865,13 +2910,35 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
          EntityHandler.storeModel(name);
       }
 
-      byte[] models = this.load("models36.jag");
+      /*
+       * A renderless client fills the model table with empty models below, so
+       * it never reads a byte of geometry: the 1MB archive is not inflated and
+       * its download is handed straight back to the heap.
+       */
+      byte[] models = Config.RENDERLESS ? new byte[0] : this.load("models36.jag");
+      if (Config.RENDERLESS) {
+         Assets.drop("models36.jag");
+      }
+
       if (models == null) {
          this.lastLoadedNull = true;
       } else {
          for (int j = 0; j < EntityHandler.getModelCount(); j++) {
-            int k = DataOperations.getEntryOffset(EntityHandler.getModelName(j) + ".ob3", models);
-            if (k == 0) {
+            int k = Config.RENDERLESS ? 0 : DataOperations.getEntryOffset(EntityHandler.getModelName(j) + ".ob3", models);
+            /*
+             * The geometry is the single largest thing this client holds -- a
+             * few hundred thousand small int arrays, around 40MB of heap, all
+             * of it vertices and faces that exist to be drawn. A renderless
+             * client never draws, so it keeps the model *table* (the scene,
+             * the object placement and the picking tags all index it) and
+             * fills it with the empty model that a missing .ob3 already
+             * produces. Everything downstream copies, translates, lights and
+             * queues these exactly as before; there is simply no geometry in
+             * them. Collision does not come from here -- walkability is built
+             * from the landscape sectors and the object defs' own width and
+             * height.
+             */
+            if (k == 0 || Config.RENDERLESS) {
                this.gameDataModels[j] = new Model(1, 1);
             } else {
                this.gameDataModels[j] = new Model(models, k, true);
@@ -5882,7 +5949,13 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
          this.menuLogin.updateText(this.loginStatusText, s + " " + s1);
       }
 
-      this.drawLoginScreen();
+      /* The menu text above is the message; the screen is only where a person
+         would read it. A renderless client has nobody reading, and its sprites
+         carry no pixels to draw with. */
+      if (!Config.RENDERLESS) {
+         this.drawLoginScreen();
+      }
+
       this.resetCurrentTimeArray();
    }
 
@@ -6410,15 +6483,30 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
        * dropped straight after: 2.3 MB of the download, needed exactly once.
        */
       for (String s : this.gamefiles) {
+         if (!neededHere(s)) {
+            continue;
+         }
+
          this.loadcache(s);
          if (s.equals("Loading.xml.data")) {
-            this.setLogo(Toolkit.getDefaultToolkit().createImage(Assets.get(s)));
+            /*
+             * The splash is the most expensive single thing a client holds
+             * after the geometry: decoding it gives AWT a full-resolution
+             * packed raster, 7.7MB of it, and both it and the scaled copy are
+             * kept for the life of the process so a resize can repaint them. A
+             * renderless client has no window to put it in, so it decodes
+             * nothing and drops the bytes the same as any other client does.
+             */
+            if (!Config.RENDERLESS) {
+               this.setLogo(Toolkit.getDefaultToolkit().createImage(Assets.get(s)));
+               System.out.println("Set loading logo...");
+            }
+
             Assets.drop(s);
-            System.out.println("Set loading logo...");
          }
       }
 
-      System.out.println("Fetched " + this.gamefiles.length + " assets from " + Config.CACHE_URL);
+      System.out.println("Fetched assets from " + Config.CACHE_URL);
       GameWindowMiddleMan.maxPacketReadCount = 1000;
       System.out.println("Loading Config Filter...");
       this.loadConfigFilter();
@@ -6446,7 +6534,10 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
             System.out.println("Loading entities...");
             this.loadEntity();
             if (!this.lastLoadedNull) {
-               this.gameCamera = new Camera(this.gameGraphics, 15000, 15000, 1000);
+               /* The second number is the visible-face queue, which only
+                  renderFrame() ever fills. A renderless client still needs the
+                  model list and the sprite tables, just never a queue. */
+               this.gameCamera = new Camera(this.gameGraphics, 15000, Config.RENDERLESS ? 1 : 15000, 1000);
                this.gameCamera
                   .setCameraSize(this.windowWidth / 2, this.windowHeight / 2, this.windowWidth / 2, this.windowHeight / 2, this.windowWidth, this.cameraSizeInt);
                this.gameCamera.clipFar3d = 2400;
@@ -6461,14 +6552,24 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
                   System.out.println("Loading models...");
                   this.loadModels();
                   if (!this.lastLoadedNull) {
-                     System.out.println("Loading sounds...");
-                     this.loadSounds();
+                     if (Config.RENDERLESS) {
+                        System.out.println("Skipping sounds (renderless).");
+                        this.lastLoadedNull = false;
+                     } else {
+                        System.out.println("Loading sounds...");
+                        this.loadSounds();
+                     }
                      if (!this.lastLoadedNull) {
                         this.drawLoadingBarText(100, "Starting RSCD Community Client...");
                         this.drawGameMenu();
                         this.makeLoginMenus();
                         this.makeCharacterDesignMenu();
-                        this.renderLoginScreenViewports();
+                        /* Each backdrop loads a region and builds its geometry
+                           just to photograph it. A bot signs straight in and
+                           never sees a login screen. */
+                        if (!Config.RENDERLESS) {
+                           this.renderLoginScreenViewports();
+                        }
                         /* Recorded before resetLoginVars(), which is what puts
                            the login or Worlds screen up: from here on, "which
                            content is loaded" is a question with an answer, and
@@ -6644,6 +6745,18 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
    private final void loadTextures() {
       this.drawLoadingBarText(52, "Unpacking Textures");
       this.gameCamera.allocateTextures(EntityHandler.textureCount(), 7, 11);
+      /*
+       * Everything below turns texture sprites into the indexed form the
+       * renderer samples: a 256-colour dictionary per texture, built by
+       * histogramming the sprite's pixels. A renderless client loads sprites
+       * without their pixels at all (Sprite.unpack), so there is nothing here
+       * to histogram and nothing that would ever sample the result. The
+       * allocation above stays, so Camera's texture tables are the shape it
+       * expects -- empty, like the rest of its render state.
+       */
+      if (Config.RENDERLESS) {
+         return;
+      }
 
       for (int i = 0; i < EntityHandler.textureCount(); i++) {
          this.loadSprite(3220 + i, "texture", 1);

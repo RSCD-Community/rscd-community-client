@@ -162,6 +162,21 @@ public class Sprite {
    }
 
    public static Sprite unpack(ByteBuffer in) throws IOException {
+      return unpack(in, true);
+   }
+
+   /*
+    * withPixels == false reads the header and throws the picture away, leaving
+    * a sprite that knows its size and holds no pixels. The renderless bot
+    * client (util/Config.RENDERLESS) loads every sprite this way: the pixels
+    * are 16MB of int arrays that only ever reach a framebuffer, and that
+    * client has no framebuffer. Width and height are kept because they are
+    * metrics, not picture -- anything that measures a sprite still gets the
+    * right answer, and anything that tries to *draw* one will fail loudly
+    * rather than silently paint nothing, which is what you want if drawing
+    * ever reaches a client that is not supposed to draw.
+    */
+   public static Sprite unpack(ByteBuffer in, boolean withPixels) throws IOException {
       if (in.remaining() < 25) {
          throw new IOException("Provided buffer too short - Headers missing");
       } else {
@@ -172,12 +187,16 @@ public class Sprite {
          int yShift = in.getInt();
          int something1 = in.getInt();
          int something2 = in.getInt();
-         int[] pixels = new int[width * height];
-         if (in.remaining() < pixels.length * 4) {
+         int count = width * height;
+         if (in.remaining() < count * 4) {
             throw new IOException("Provided buffer too short - Pixels missing");
          } else {
-            for (int c = 0; c < pixels.length; c++) {
-               pixels[c] = in.getInt();
+            int[] pixels = new int[withPixels ? count : 0];
+            for (int c = 0; c < count; c++) {
+               int pixel = in.getInt();
+               if (withPixels) {
+                  pixels[c] = pixel;
+               }
             }
 
             Sprite sprite = new Sprite(pixels, width, height);

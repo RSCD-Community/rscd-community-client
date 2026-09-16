@@ -112,6 +112,29 @@ All three are optional. A world with no `worldmap.png` gets a screen that says
 so; one with no `mapkey.gif` gets no Key button; one with no `worldmap.cal`
 gets the vanilla geometry, which is the fallback compiled into the panel.
 
+### Keep the zip archives compressed
+
+`Landscape.xml.data` and `Sprites.xml.data` are zip archives, and the client
+keeps every byte it downloads for the life of the process (`util/Assets` is a
+static map; see its class comment for why the bytes are stored as downloaded
+and inflated one entry at a time). That makes the *stored size* of those two
+archives a permanent cost in every client's heap, bot or player.
+
+Ours shipped for a while with all 1,764 Landscape entries written STORED rather
+than DEFLATED: 40,804,870 bytes where 891,664 would do, a factor of 45.8, paid
+on every launch in both download and resident memory. Nothing failed -- a zip
+with stored entries is a perfectly valid zip -- so it went unnoticed until
+someone measured a client at the login screen. Whatever repacks these, check
+the result before publishing it:
+
+```
+python3 -c "import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); \
+  print(sum(1 for i in z.infolist() if i.compress_type==zipfile.ZIP_STORED), \
+        'stored of', len(z.infolist()))" cache_data/Landscape.xml.data
+```
+
+Anything but `0 stored` is a regression.
+
 ## Fonts, and why panels used to overflow on Linux
 
 There are no font files in the cache. `GameImage.loadFont` builds each of the
@@ -538,11 +561,59 @@ the API gains it.
     tools/agent.py scene 15
     tools/agent.py walkTo 330 557
 
-`--bot` is the other half. There is no headless mode and this does not add
-one -- a bot client is an ordinary client with an ordinary window. What `--bot`
-does is fill in the login box and start one script, so a character can be
-brought up without a person at the keyboard. It needs `--user=` and `--pass=`
-to do anything; on its own it is ignored.
+`--bot` is the other half. It fills in the login box and starts one script, so
+a character can be brought up without a person at the keyboard. It needs
+`--user=` and `--pass=` to do anything; on its own it is ignored.
+
+What it also does is stop painting. Nobody is watching an unattended client,
+and drawing a frame it costs the whole 3D pipeline fifty times a second plus
+the geometry that pipeline needs -- which is the largest thing in the heap. So
+`--bot` turns on `Config.RENDERLESS`: the game loop still runs `updateGame()`
+every tick, and the client still loads and holds every bit of game state (the
+object and npc tables, the walkability map, the pathfinder), but
+`renderFrame()` never runs, sounds and the login-screen viewports never load,
+and the model table is filled with the same empty model a missing `.ob3`
+already produces. A script cannot tell the difference; nothing in the scripting
+API reads a pixel, a menu or a mouse.
+
+A client that draws nothing does not need a screen either, so `run.sh` starts a
+bot with `-Djava.awt.headless=true` and `createWindow()` opens no frame. That
+is worth more than it sounds. The obvious saving is the window itself -- five
+AWT threads, an X connection, and the Xvfb that used to have to be running
+beside a fleet at 18MB of its own. The larger one is fonts: the client asked
+AWT for a `Font` for the loading screen in a static initialiser, and merely
+finding out what Helvetica is called on this machine enumerates every installed
+font file. Measured against a bare JVM that is 18MB of RSS, 15MB of it private,
+and three threads -- more than this client's entire live heap. The font is
+built on first use now (`GameWindow.loadingFont`), and a bot never reaches it,
+because the eight interface font slots are filled from the pre-rendered bakes
+in `media/fonts` instead, which are plain file reads.
+
+The whole sequence, measured on an idle bot on the same box:
+
+| | RSS | private | threads | cores |
+|---|---|---|---|---|
+| JVM defaults, drawing | 317MB | | 36 | 0.120 |
+| renderless, windowed | 117MB | 81MB | 25 | 0.014 |
+| renderless, headless | **89MB** | **67MB** | **18** | 0.014 |
+
+Read the private column, not RSS. Roughly 22MB of a bot's RSS is JDK pages
+shared with every other JVM on the box, counted again in each one's RSS, so
+three bots do not cost three times 89MB. The private column is what a further
+bot actually adds.
+
+Pass `-Drscd.render=1` to paint anyway, which is how you watch a bot on a
+screen when something looks wrong. That turns `Config.RENDERLESS` back off, and
+`run.sh` notices and leaves the headless flag off with it -- so a bot you want
+to watch still needs `DISPLAY` set, and nothing else does.
+
+If you add to what renderless skips, the rule that keeps it safe is the one the
+sprite and framebuffer guards follow: put the guard at the public edge of the
+thing that draws, not at the call sites. Drawing reaches this client from the
+login screen and the region-loading overlay as well as from `renderFrame()`,
+and a missed call site is a null `Graphics` in the middle of `loadSection`,
+which leaves the region half-loaded and the client looping on the login screen
+rather than failing anywhere near the cause.
 
 Two commands are synthesised on top of the API because they answer the
 question a driver actually asks:

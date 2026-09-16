@@ -1,5 +1,4 @@
 package org.rscdaemon.client;
-import org.rscdaemon.client.util.Config;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -18,6 +17,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.zip.ZipEntry;
 import org.rscdaemon.client.util.Assets;
+import org.rscdaemon.client.util.Config;
 import org.rscdaemon.client.util.MemoryArchive;
 import org.rscdaemon.client.model.Sprite;
 import org.rscdaemon.client.util.DataConversions;
@@ -142,7 +142,9 @@ public class GameImage implements ImageProducer, ImageObserver {
             System.err.println("Missing sprite: " + id);
             return false;
          } else {
-            this.sprites[id] = Sprite.unpack(ByteBuffer.wrap(entry));
+            /* A renderless client keeps every sprite's size and none of its
+               pixels -- see Sprite.unpack and util/Config.RENDERLESS. */
+            this.sprites[id] = Sprite.unpack(ByteBuffer.wrap(entry), !Config.RENDERLESS);
             return true;
          }
       } catch (Exception var5) {
@@ -219,7 +221,24 @@ public class GameImage implements ImageProducer, ImageObserver {
       this.imageHeight = this.menuDefaultHeight;
    }
 
+   /*
+    * Put the framebuffer on the screen. This is the one place the client hands
+    * its own pixels to AWT, and every caller is "show what has just been
+    * drawn" -- renderFrame's present, and the handful of places that put a
+    * progress message up mid-load without going round the main loop.
+    *
+    * A renderless client has nothing to show and, run headless (no window at
+    * all, which is how run.sh starts a bot), no Graphics to show it on: the
+    * cached screen Graphics is null and this used to throw straight out of
+    * loadSection, which left the region half-loaded and the client looping on
+    * the login. The guard belongs here rather than at the six call sites
+    * because it is the single seam between the client's pixels and the screen.
+    */
    public void drawImage(Graphics g, int x, int y) {
+      if (Config.RENDERLESS) {
+         return;
+      }
+
       this.completePixels();
       g.drawImage(this.image, x, y, this);
    }
@@ -557,6 +576,19 @@ public class GameImage implements ImageProducer, ImageObserver {
    }
 
    public void drawPicture(int x, int y, int picture) {
+      /*
+       * Every sprite draw stops here in a renderless client. Its sprites were
+       * loaded without pixels (Sprite.unpack, util/Config.RENDERLESS), so
+       * there is nothing to copy and an empty array to copy it from; and it has
+       * no viewer either way. The guard sits at the public edge rather than in
+       * the plot loops because draws reach this class from the login screen and
+       * the region-loading overlay as well as from renderFrame(), and those two
+       * run in a client that never paints a frame.
+       */
+      if (Config.RENDERLESS) {
+         return;
+      }
+
       try {
          if (this.sprites[picture].requiresShift()) {
             x += this.sprites[picture].getXShift();
@@ -622,6 +654,10 @@ public class GameImage implements ImageProducer, ImageObserver {
    }
 
    public void spriteClip1(int i, int j, int k, int l, int i1) {
+      if (Config.RENDERLESS) {
+         return;   // see drawPicture
+      }
+
       try {
          int j1 = this.sprites[i1].getWidth();
          int k1 = this.sprites[i1].getHeight();
@@ -695,6 +731,10 @@ public class GameImage implements ImageProducer, ImageObserver {
    }
 
    public void drawSpriteAlpha(int i, int j, int k, int l) {
+      if (Config.RENDERLESS) {
+         return;   // see drawPicture
+      }
+
       if (this.sprites[k].requiresShift()) {
          i += this.sprites[k].getXShift();
          j += this.sprites[k].getYShift();
@@ -752,6 +792,10 @@ public class GameImage implements ImageProducer, ImageObserver {
    }
 
    public void spriteClip2(int i, int j, int k, int l, int i1, int j1) {
+      if (Config.RENDERLESS) {
+         return;   // see drawPicture
+      }
+
       try {
          int k1 = this.sprites[i1].getWidth();
          int l1 = this.sprites[i1].getHeight();
@@ -825,6 +869,10 @@ public class GameImage implements ImageProducer, ImageObserver {
    }
 
    public void spriteClip3(int i, int j, int k, int l, int i1, int j1) {
+      if (Config.RENDERLESS) {
+         return;   // see drawPicture
+      }
+
       try {
          int k1 = this.sprites[i1].getWidth();
          int l1 = this.sprites[i1].getHeight();
@@ -1071,6 +1119,10 @@ public class GameImage implements ImageProducer, ImageObserver {
    }
 
    public void drawMinimapSprite(int i, int j, int k, int l, int i1) {
+      if (Config.RENDERLESS) {
+         return;   // see drawPicture
+      }
+
       int j1 = this.menuDefaultWidth;
       int k1 = this.menuDefaultHeight;
       if (this.sinCosCache == null) {
@@ -1404,10 +1456,18 @@ public class GameImage implements ImageProducer, ImageObserver {
    }
 
    public void drawSceneSprite(int i, int j, int k, int l, int i1, int j1, int k1) {
+      if (Config.RENDERLESS) {
+         return;   // see drawPicture
+      }
+
       this.spriteClip1(i, j, k, l, i1);
    }
 
    public void spriteClip4(int i, int j, int k, int l, int i1, int overlay, int k1, int l1, boolean flag) {
+      if (Config.RENDERLESS) {
+         return;   // see drawPicture
+      }
+
       try {
          if (overlay == 0) {
             overlay = 16777215;

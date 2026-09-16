@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.awt.Panel;
 import java.net.InetAddress;
 import java.net.Socket;
+import org.rscdaemon.client.util.Config;
 
 /*
  * Applet mode is gone. This extended java.applet.Applet because the client was
@@ -44,7 +45,33 @@ public class GameWindow extends Panel implements Runnable {
     * near-black RSCDaemon splash and is invisible against this one.
     */
    public static final Color BAR_COLOUR = new Color(152, 196, 80);
-   public static final Font LOADING_FONT = GameImage.helvetica(0, 12);
+
+   /*
+    * The loading screen's font, built on first use rather than on class init.
+    *
+    * Asking AWT for any Font at all is expensive in a way that is easy to
+    * miss: GameImage.helvetica has to find out what Helvetica is called on
+    * this machine, and that enumerates every installed font family, which
+    * loads fontconfig and opens every font file on the box. Measured on a
+    * headless JVM it is 18MB of RSS, 15MB of it private, and three threads --
+    * more than the game's entire live heap.
+    *
+    * A renderless bot client never paints this screen, and it does not need
+    * AWT fonts for anything else either: the eight interface font slots are
+    * filled from the pre-rendered bakes in media/fonts (loadBakedFont), which
+    * are plain file reads. So as long as nothing asks for this field before
+    * something draws, a bot never pays for any of it. Keep it that way -- a
+    * static initialiser here would put the whole cost back on every launch.
+    */
+   private static Font loadingFont;
+
+   private static synchronized Font loadingFont() {
+      if (loadingFont == null) {
+         loadingFont = GameImage.helvetica(0, 12);
+      }
+
+      return loadingFont;
+   }
 
    /*
     * Where the progress bar sits, as a fraction of the splash image rather
@@ -65,7 +92,7 @@ public class GameWindow extends Panel implements Runnable {
    private static final float BAR_W = 0.5479F;
    private static final float BAR_H = 0.0731F;
 
-   /** Point size LOADING_FONT was chosen against, for proportional scaling. */
+   /** Point size loadingFont() was chosen against, for proportional scaling. */
    private static final int FONT_REFERENCE_HEIGHT = 345;
 
    private Image loadingLogo;
@@ -132,7 +159,18 @@ public class GameWindow extends Panel implements Runnable {
    protected final void createWindow(int width, int height, String title, boolean resizable) {
       canvasWidth = width;
       canvasHeight = height;
-      gameFrame = new GameFrame(this, width, height, title, resizable, false);
+      /*
+       * A renderless client opens no window, and with none open it needs no
+       * display at all -- run it with -Djava.awt.headless=true (run.sh does
+       * for --bot) and the X connection, the Xvfb behind it and the five AWT
+       * threads that come with a frame all go away. The canvas dimensions
+       * above are still set, because the login screen and the menus measure
+       * themselves against them whether or not anybody is looking.
+       */
+      if (!Config.RENDERLESS) {
+         gameFrame = new GameFrame(this, width, height, title, resizable, false);
+      }
+
       this.loadingScreen = 1;
       this.gameWindowThread = new Thread(this);
       this.gameWindowThread.start();
@@ -201,7 +239,8 @@ public class GameWindow extends Panel implements Runnable {
    /** Font scaled so the bar label stays proportionate on a larger window. */
    private Font getLoadingFont() {
       int size = Math.max(10, Math.round(12.0F * canvasHeight / FONT_REFERENCE_HEIGHT));
-      return size == LOADING_FONT.getSize() ? LOADING_FONT : LOADING_FONT.deriveFont((float)size);
+      Font base = loadingFont();
+      return size == base.getSize() ? base : base.deriveFont((float)size);
    }
 
    /* The canvas, for subclasses that draw straight onto the window rather than
@@ -740,9 +779,16 @@ public class GameWindow extends Panel implements Runnable {
    public final void run() {
       if (this.loadingScreen == 1) {
          this.loadingScreen = 2;
-         this.loadingGraphics = this.getGraphics();
-         this.drawLoadingLogo();
-         this.drawLoadingScreen(0, "Loading...");
+         /* The fonts are loaded either way: drawLoadingLogo() used to be the
+            only caller, and a renderless client skips it but still measures
+            text (GameImage.textWidth) when it lays out a menu. */
+         this.loadFonts();
+         if (!Config.RENDERLESS) {
+            this.loadingGraphics = this.getGraphics();
+            this.drawLoadingLogo();
+            this.drawLoadingScreen(0, "Loading...");
+         }
+
          this.startGame();
          this.loadingScreen = 0;
       }
@@ -823,7 +869,14 @@ public class GameWindow extends Panel implements Runnable {
 
          this.overloadCount--;
          i1 &= 255;
-         this.renderFrame();
+         /* updateGame() above is the game; renderFrame() is only the picture of
+            it. An unattended client skips the picture -- see Config.RENDERLESS.
+            Nothing in the scripting API reads what was drawn, so a script sees
+            exactly the same world either way, and the 3D pipeline stops being
+            the busiest thing in the process. */
+         if (!Config.RENDERLESS) {
+            this.renderFrame();
+         }
       }
 
       if (this.exitTimeout == -1) {
@@ -851,11 +904,22 @@ public class GameWindow extends Panel implements Runnable {
       if (logo != null) {
          this.loadingGraphics.drawImage(logo, 0, 0, this);
       }
-
-      this.loadFonts();
    }
 
    private final void drawLoadingScreen(int i, String s) {
+      /*
+       * Both of these are reached from the asset download and from paint(), so
+       * a renderless client walks into them on every launch. Without the guard
+       * they would throw on a null Graphics and be swallowed by the catch
+       * below, which works but hides anything that really is wrong, and asking
+       * for the font would drag in AWT's whole font stack (see loadingFont).
+       */
+      if (Config.RENDERLESS) {
+         this.loadingPercent = i;
+         this.loadingBarText = s;
+         return;
+      }
+
       try {
          this.loadingGraphics.setColor(Color.black);
          this.loadingGraphics.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -884,6 +948,12 @@ public class GameWindow extends Panel implements Runnable {
    }
 
    public final void drawLoadingBarText(int i, String s) {
+      if (Config.RENDERLESS) {
+         this.loadingPercent = i;
+         this.loadingBarText = s;
+         return;
+      }
+
       try {
          this.loadingPercent = i;
          this.loadingBarText = s;

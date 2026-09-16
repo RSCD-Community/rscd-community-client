@@ -1,11 +1,11 @@
 package org.rscdaemon.client;
-import org.rscdaemon.client.util.Config;
 
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.zip.ZipEntry;
 import org.rscdaemon.client.util.Assets;
+import org.rscdaemon.client.util.Config;
 import org.rscdaemon.client.util.MemoryArchive;
 import org.rscdaemon.client.entityhandling.EntityHandler;
 import org.rscdaemon.client.model.Sector;
@@ -448,7 +448,21 @@ public class EngineHandle {
       this.loadSection(l, i1, k, 3);
       this.resolveSectorEdgeOverlays();
       if (this.landscapeModel == null) {
-         this.landscapeModel = new Model(18688, 18688, true, true, false, false, true);
+         /*
+          * 18,688 vertices and as many faces, rebuilt every time the player
+          * crosses into a new region, is the largest single allocation this
+          * client makes -- around 30MB of int arrays by the time the terrain,
+          * wall and roof passes below have each filled it and split it into
+          * 64 chunks. A renderless bot never draws any of it, so it gets a
+          * hollow model of capacity 1 that accepts the geometry and discards
+          * it (see Model.hollow). Everything else in buildLandscape runs
+          * exactly as before, which matters: the walkability map, the wall and
+          * door bits, the overlay flags and the shadows all come out of these
+          * same loops, and pathing reads them.
+          */
+         int capacity = Config.RENDERLESS ? 1 : 18688;
+         this.landscapeModel = new Model(capacity, capacity, true, true, false, false, true);
+         this.landscapeModel.hollow = Config.RENDERLESS;
       }
 
       if (flag) {
@@ -1157,6 +1171,18 @@ public class EngineHandle {
    }
 
    public void drawMinimapTile(int i, int j, int k, int l, int i1) {
+      /*
+       * The minimap is painted a tile at a time while the region loads, which
+       * is why this lives on the build path rather than in the renderer. The
+       * colours come out of the texture tables, and a renderless client has
+       * none -- it never unpacked a texture (mudclient.loadTextures) because
+       * nothing will ever sample one. Nothing downstream reads the minimap
+       * back, so not drawing it costs nothing but the picture.
+       */
+      if (Config.RENDERLESS) {
+         return;
+      }
+
       int j1 = i * 3;
       int k1 = j * 3;
       int l1 = this.camera.getFillColor(l);
