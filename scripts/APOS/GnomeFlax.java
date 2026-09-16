@@ -49,7 +49,15 @@ public class GnomeFlax extends Script {
     private static final int WHEEL_X = 693, WHEEL_Y = 1459;
     private static final int WHEEL_DOWN_X = 691, WHEEL_DOWN_Y = 1459;
     private static final int BANK_DOWN_X = 714, BANK_DOWN_Y = 1444;
-    private static final int BANK_X = 714, BANK_Y = 1452;
+    /*
+     * (714,1452) was here and is a walled tile -- tools/route.py finds no
+     * route to it from anywhere on the platform. It never showed because the
+     * bankers start inside talking range and this is only the fallback, but
+     * a walk to an unreachable square is a walk that never happens. The
+     * bankers roam y1448-1458, so the fallback aims at the middle of their
+     * strip on the walkable column.
+     */
+    private static final int BANK_X = 715, BANK_Y = 1452;
 
     /** Anything east of this line upstairs is the bank tree, not the wheel. */
     private static final int PLATFORM_SPLIT = 700;
@@ -66,6 +74,9 @@ public class GnomeFlax extends Script {
     private long last_report;
     private int spun;
     private boolean too_low;
+    /* Deposit-stall watchdog -- see the isBanking() branch in main(). */
+    private int bank_last = -1;
+    private int bank_stalls;
 
     public GnomeFlax(Extension ex) {
         super(ex);
@@ -76,6 +87,8 @@ public class GnomeFlax extends Script {
         last_report = 0L;
         spun = 0;
         too_low = false;
+        bank_last = -1;
+        bank_stalls = 0;
     }
 
     public int main() {
@@ -97,13 +110,42 @@ public class GnomeFlax extends Script {
             useSleepingBag();
             return random(2000, 3000);
         }
-        /* However the bank came to be open, empty it and get on. */
+        /*
+         * However the bank came to be open, empty it and get on.
+         *
+         * A BANK WINDOW THE SERVER HAS ALREADY CLOSED IS THE ONE THING THAT
+         * CAN WEDGE THIS SCRIPT FOR GOOD. isBanking() reads a client flag,
+         * and the flag survives a dropped connection -- a server restart
+         * while the bank is open leaves the window painted with no session
+         * behind it. Every deposit is then thrown away silently: the pack
+         * does not change, this branch runs again, and nothing below it is
+         * ever reached. Stopping and restarting the script does not help,
+         * because the stale flag lives in the client, not in here.
+         *
+         * So the deposits have to be watched. Five ticks with the count
+         * unmoved is not a slow bank, it is a dead one -- closeBank()
+         * clears the flag locally whatever the server thinks, and the walk
+         * back to the banker starts a real session.
+         */
         if (isBanking()) {
             int strings = getInventoryCount(BOWSTRING);
             if (strings > 0) {
+                if (strings != bank_last) {
+                    bank_last = strings;
+                    bank_stalls = 0;
+                } else if (++bank_stalls > 5) {
+                    log("Bank open but deposits are doing nothing - stale "
+                            + "window, closing it and starting the trip over.");
+                    bank_stalls = 0;
+                    bank_last = -1;
+                    closeBank();
+                    return random(1200, 1800);
+                }
                 deposit(BOWSTRING, strings);
                 return random(600, 1000);
             }
+            bank_stalls = 0;
+            bank_last = -1;
             closeBank();
             return random(800, 1200);
         }
@@ -210,10 +252,17 @@ public class GnomeFlax extends Script {
             if (getX() >= PLATFORM_SPLIT) {
                 /* Proximity beats geography: if a banker is in talking
                    range there is nothing left to walk to. */
+                /* Walk at the banker, not at a spot the banker is usually
+                   near. They roam eleven tiles of platform; a fixed target
+                   can be reached and still leave them out of range, and then
+                   there is nothing left to walk towards. */
                 int[] banker = getNpcByIdNotTalk(BANKER);
-                if (banker[0] != -1 && distanceTo(banker[1], banker[2]) <= 4) {
-                    talkToNpc(banker[0]);
-                    return random(2500, 3500);
+                if (banker[0] != -1) {
+                    if (distanceTo(banker[1], banker[2]) <= 4) {
+                        talkToNpc(banker[0]);
+                        return random(2500, 3500);
+                    }
+                    return stepTowards(banker[1], banker[2]);
                 }
                 return stepTowards(BANK_X, BANK_Y);   /* south over the bridge */
             }

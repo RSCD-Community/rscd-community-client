@@ -516,6 +516,68 @@ public final class FableMiner extends MerchantScript
 		return openBank();
 	}
 
+	/** Coins, so a sale's takings are not banked out from under the desk. */
+	private static final int COINS = 10;
+
+	/**
+	 * Whether the pack is supposed to be carrying this at all.
+	 *
+	 * A character that arrives from Tutorial Island brings a sword, a shield,
+	 * a net and a handful of runes, and nothing here ever told it to put them
+	 * down. That is eight occupied slots, which is eight fewer ore -- and
+	 * Giles trades twenty-five at a time, so a pack holding the starter kit
+	 * can never assemble an exchange. It asks the bank for the shortfall, is
+	 * told there is no room, changes nothing, and asks again. The run that
+	 * turned this up had done it fifty-one thousand times.
+	 *
+	 * Listing what stays is safer than listing what goes: a drop, a bounty
+	 * reward or a quest item nobody thought about is junk by default, and the
+	 * worst that does is put something in the bank.
+	 */
+	private boolean keepInPack( int id )
+	{
+		if ( id == SLEEPING_BAG || id == GOODS || id == COINS || id == IRON_ORE )
+		{
+			return true;
+		}
+
+		for ( int i = 0; i < PICKAXES.length; i++ )
+		{
+			if ( PICKAXES[i] == id )
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Bank one thing the pack should not be holding. True if it did.
+	 *
+	 * One per call, because the bank screen is a click at a time and an
+	 * unstacked item deposits as its own slot -- the stack size is read off
+	 * the slot rather than assumed, so five mind-runes go in one click and a
+	 * sword goes in one click.
+	 */
+	private boolean depositJunk()
+	{
+		for ( int slot = 0; slot < getInventoryCount(); slot++ )
+		{
+			int id = getInventoryId( slot );
+
+			if ( id != -1 && ! keepInPack( id ) )
+			{
+				note( "Banking " + getItemNameId( id ) + " - the pack is for "
+					+ "tools and stock." );
+				deposit( id, getInventoryStack( slot ) );
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	/** At the Draynor counter: ore out, gems and spare ore in. */
 	private int certBankStep()
 	{
@@ -535,10 +597,43 @@ public final class FableMiner extends MerchantScript
 			}
 		}
 
+		if ( depositJunk() )
+		{
+			return random( 1000, 1500 );
+		}
+
 		int carried = getInventoryCount( IRON_ORE );
+		int room    = PACK_SLOTS - getInventoryCount();
 
 		if ( carried < PER_EXCHANGE && bankCount( IRON_ORE ) >= PER_EXCHANGE - carried )
 		{
+			/*
+			 * Ask for no more than there is somewhere to put. A withdraw that
+			 * does not fit is refused whole -- the server says "you don't have
+			 * room for that" and nothing moves -- and since nothing moves, the
+			 * same step runs again on the next tick with the same numbers. That
+			 * is the shape of every one of these loops: a failure that changes
+			 * no state is a failure that repeats forever.
+			 */
+			if ( room < PER_EXCHANGE - carried )
+			{
+				/* What is in hand is sitting in the slots the withdraw needs.
+				   Putting it back costs one click and the next pass takes the
+				   whole twenty-five in a single go. */
+				if ( carried > 0 )
+				{
+					deposit( IRON_ORE, carried );
+					return random( 1000, 1500 );
+				}
+
+				note( "An empty pack still has no room for an exchange "
+					+ "- ending the cert run rather than retrying." );
+				certRun = false;
+				homeRun = true;
+				closeBank();
+				return random( 1000, 1500 );
+			}
+
 			withdraw( IRON_ORE, PER_EXCHANGE - carried );
 			return random( 1000, 1500 );
 		}

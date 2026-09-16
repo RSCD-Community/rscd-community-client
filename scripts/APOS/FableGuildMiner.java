@@ -316,8 +316,34 @@ public final class FableGuildMiner extends MerchantScript
 			return throughDoor( IN_X, IN_Y );
 		}
 
-		if ( distanceTo( PATH[0][0], PATH[0][1] ) > 60 )
+		/*
+		 * On the Draynor road, wherever along it.
+		 *
+		 * certRun and homeRun are cleared by init(), and init() runs again on
+		 * every relogin -- so one disconnect on the road leaves a bot that is
+		 * standing on its own route with no idea it was ever on one. Asking the
+		 * route where it is survives that; asking a field does not.
+		 *
+		 * This has to be asked before the distance test below, and that is the
+		 * whole bug. The road passes within sixty tiles of the mine path around
+		 * Falador's south-east corner without ever being walkable to it, so the
+		 * old order called the bot "close enough", handed walkPath a waypoint
+		 * forty tiles away on the far side of the city wall, and the server
+		 * quietly declined to path it. No message, no movement, no state change:
+		 * it stood there through seventy-three idle logouts.
+		 *
+		 * Walking home is right on either leg, since the bank end re-decides
+		 * what to do next anyway.
+		 */
+		if ( distanceToRoute( PATH ) > ROUTE_SLACK )
 		{
+			if ( distanceToRoute( ROAD ) <= ROUTE_SLACK )
+			{
+				note( "Off the flags at " + getX() + "," + getY()
+					+ " but on the Draynor road - walking home." );
+				return walkRoad( false );
+			}
+
 			note( "Lost at " + getX() + "," + getY() + " - not walking blind." );
 			return random( 5000, 8000 );
 		}
@@ -543,6 +569,68 @@ public final class FableGuildMiner extends MerchantScript
 		return openBank();
 	}
 
+	/** Coins, so a sale's takings are not banked out from under the desk. */
+	private static final int COINS = 10;
+
+	/**
+	 * Whether the pack is supposed to be carrying this at all.
+	 *
+	 * A character that arrives from Tutorial Island brings a sword, a shield,
+	 * a net and a handful of runes, and nothing here ever told it to put them
+	 * down. That is eight occupied slots, which is eight fewer ore -- and
+	 * Giles trades twenty-five at a time, so a pack holding the starter kit
+	 * can never assemble an exchange. It asks the bank for the shortfall, is
+	 * told there is no room, changes nothing, and asks again. The run that
+	 * turned this up had done it fifty-one thousand times.
+	 *
+	 * Listing what stays is safer than listing what goes: a drop, a bounty
+	 * reward or a quest item nobody thought about is junk by default, and the
+	 * worst that does is put something in the bank.
+	 */
+	private boolean keepInPack( int id )
+	{
+		if ( id == SLEEPING_BAG || id == GOODS || id == COINS || id == COAL )
+		{
+			return true;
+		}
+
+		for ( int i = 0; i < PICKAXES.length; i++ )
+		{
+			if ( PICKAXES[i] == id )
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Bank one thing the pack should not be holding. True if it did.
+	 *
+	 * One per call, because the bank screen is a click at a time and an
+	 * unstacked item deposits as its own slot -- the stack size is read off
+	 * the slot rather than assumed, so five mind-runes go in one click and a
+	 * sword goes in one click.
+	 */
+	private boolean depositJunk()
+	{
+		for ( int slot = 0; slot < getInventoryCount(); slot++ )
+		{
+			int id = getInventoryId( slot );
+
+			if ( id != -1 && ! keepInPack( id ) )
+			{
+				note( "Banking " + getItemNameId( id ) + " - the pack is for "
+					+ "tools and stock." );
+				deposit( id, getInventoryStack( slot ) );
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	/** At the Draynor counter: coal out, gems and spare coal in. */
 	private int certBankStep()
 	{
@@ -562,10 +650,43 @@ public final class FableGuildMiner extends MerchantScript
 			}
 		}
 
+		if ( depositJunk() )
+		{
+			return random( 1000, 1500 );
+		}
+
 		int carried = getInventoryCount( COAL );
+		int room    = PACK_SLOTS - getInventoryCount();
 
 		if ( carried < PER_EXCHANGE && bankCount( COAL ) >= PER_EXCHANGE - carried )
 		{
+			/*
+			 * Ask for no more than there is somewhere to put. A withdraw that
+			 * does not fit is refused whole -- the server says "you don't have
+			 * room for that" and nothing moves -- and since nothing moves, the
+			 * same step runs again on the next tick with the same numbers. That
+			 * is the shape of every one of these loops: a failure that changes
+			 * no state is a failure that repeats forever.
+			 */
+			if ( room < PER_EXCHANGE - carried )
+			{
+				/* What is in hand is sitting in the slots the withdraw needs.
+				   Putting it back costs one click and the next pass takes the
+				   whole twenty-five in a single go. */
+				if ( carried > 0 )
+				{
+					deposit( COAL, carried );
+					return random( 1000, 1500 );
+				}
+
+				note( "An empty pack still has no room for an exchange "
+					+ "- ending the cert run rather than retrying." );
+				certRun = false;
+				homeRun = true;
+				closeBank();
+				return random( 1000, 1500 );
+			}
+
 			withdraw( COAL, PER_EXCHANGE - carried );
 			return random( 1000, 1500 );
 		}
@@ -731,6 +852,27 @@ public final class FableGuildMiner extends MerchantScript
 	{
 		return ( getX() >= 212 && getX() <= 236
 			&& getY() >= 624 && getY() <= 644 );
+	}
+
+	/** How far off a sampled route still counts as being on it. */
+	private static final int ROUTE_SLACK = 8;
+
+	/** Distance to the nearest waypoint of a route. */
+	private int distanceToRoute( int[][] route )
+	{
+		int best = Integer.MAX_VALUE;
+
+		for ( int i = 0; i < route.length; i++ )
+		{
+			int dist = distanceTo( route[i][0], route[i][1] );
+
+			if ( dist < best )
+			{
+				best = dist;
+			}
+		}
+
+		return best;
 	}
 
 	private int walkPath( boolean towardMine )
