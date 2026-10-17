@@ -55,6 +55,16 @@ public class Agent extends Script {
     private ServerSocket listener;
     private int port = DEFAULT_PORT;
 
+    /*
+     * The listener the previous instance left behind. A relogin restarts
+     * the script, and the restart is a new Agent whose predecessor's accept
+     * thread still owns the port -- so the new one failed to bind, served
+     * nothing, and from outside the bot looked dead until its process was
+     * killed. Closing the old listener first hands the port over; the old
+     * accept loop sees the close and leaves.
+     */
+    private static ServerSocket previous;
+
     public Agent(Extension e) {
         super(e);
     }
@@ -63,10 +73,15 @@ public class Agent extends Script {
         if (params != null && params.trim().length() > 0) {
             try { port = Integer.parseInt(params.trim()); } catch (Exception ignored) { }
         }
+        if (previous != null) {
+            try { previous.close(); } catch (IOException ignored) { }
+            previous = null;
+        }
         try {
             /* Loopback only. This is a remote control for the machine's owner,
              * not a service, and it must never be reachable from off-box. */
             listener = new ServerSocket(port, 4, InetAddress.getByName("127.0.0.1"));
+            previous = listener;
         } catch (IOException e) {
             System.out.println("Agent: could not listen on " + port + ": " + e);
             return;
@@ -79,6 +94,28 @@ public class Agent extends Script {
         t.start();
     }
 
+    /*
+     * Everything the server says, on stdout.
+     *
+     * The socket can describe where things are but not what was said, and a
+     * dialogue is nothing but what was said -- so driving a conversation from
+     * outside meant guessing whether a line had landed. The log is the
+     * transcript now: tail it beside the commands and you can see the reply to
+     * each one. NPC chat comes through the public-chat hook rather than this
+     * one, so both are here.
+     */
+    public void onServerMessage(String message) {
+        System.out.println("Agent< " + message);
+    }
+
+    public void onChatMessage(String message, String player, boolean moderator, boolean administrator) {
+        System.out.println("Agent< " + player + ": " + message);
+    }
+
+    public void onPrivateMessage(String message, String player, boolean moderator, boolean administrator) {
+        System.out.println("Agent< (pm) " + player + ": " + message);
+    }
+
     /* ---------------- socket side ---------------- */
 
     private void accept() {
@@ -88,7 +125,11 @@ public class Agent extends Script {
                 s = listener.accept();
                 serve(s);
             } catch (IOException e) {
-                /* A dropped client is routine; keep listening. */
+                /* A dropped client is routine; keep listening. A closed
+                 * listener is a successor taking the port: stop. */
+                if (listener.isClosed()) {
+                    return;
+                }
             } finally {
                 if (s != null) { try { s.close(); } catch (IOException ignored) { } }
             }
@@ -178,7 +219,49 @@ public class Agent extends Script {
         if (c.method.equals("scene")) {
             return scene(c.args.length > 0 ? Integer.parseInt(c.args[0]) : DEFAULT_RADIUS);
         }
+        if (c.method.equals("talkById") || c.method.equals("attackById")) {
+            return byId(c.method, c.args);
+        }
+        if (c.method.equals("castById")) {
+            return castById(c.args);
+        }
         return json(invoke(c.method, c.args));
+    }
+
+    /*
+     * Find an npc by id and act on it in the same tick.
+     *
+     * The client renumbers its npc array on every update packet, so an index
+     * handed out by one request is meaningless by the next one -- ask for the
+     * combat instructor, talk to that index a tick later, and you get whoever
+     * inherited the number, which on Tutorial Island is the controls guide
+     * standing twenty tiles away. Finding and acting have to happen inside one
+     * dispatch, so they do.
+     */
+    private String byId(String verb, String[] args) {
+        int[] ids = new int[args.length];
+        for (int i = 0; i < args.length; i++) { ids[i] = Integer.parseInt(args[i]); }
+        int[] found = verb.equals("talkById") ? getNpcByIdNotTalk(ids) : getNpcById(ids);
+        if (found[0] == -1) { return "null"; }
+        if (verb.equals("talkById")) { talkToNpc(found[0]); } else { attackNpc(found[0]); }
+        return "[" + found[0] + "," + found[1] + "," + found[2] + "]";
+    }
+
+    /*
+     * Cast a spell at an npc found by id, in the same tick, for the same
+     * reason byId() exists: a spell aimed at a stale index hits whatever
+     * inherited the number.
+     *
+     *   castById <spell> <npc id> [npc id ...]
+     */
+    private String castById(String[] args) {
+        int spell = Integer.parseInt(args[0]);
+        int[] ids = new int[args.length - 1];
+        for (int i = 1; i < args.length; i++) { ids[i - 1] = Integer.parseInt(args[i]); }
+        int[] found = getNpcById(ids);
+        if (found[0] == -1) { return "null"; }
+        mageNpc(found[0], spell);
+        return "[" + found[0] + "," + found[1] + "," + found[2] + "]";
     }
 
     /* Find a public Script method of this name whose parameters the supplied
