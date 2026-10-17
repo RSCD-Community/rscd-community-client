@@ -16,12 +16,19 @@ public final class S_Certer extends Script
         implements ActionListener {
 
     private static final int ID_GNOMEBALL = 981;
+    /** The last confirmed choice, so an unattended restart needs no window. */
+    private static final java.io.File CONFIG =
+        new java.io.File(System.getProperty("user.home"), ".rscd-s_certer.cfg");
     private CertOption item;
     private boolean uncert;
     private Frame frame;
     private Choice choice;
     private long bank_time;
     private long menu_time;
+    /* When the amount was picked, and how many of the goods being handed in
+       were held at that moment. -1 when no exchange is in flight. */
+    private long trade_time = -1L;
+    private int trade_held;
 
     public S_Certer(Extension ex) {
         super(ex);
@@ -85,14 +92,64 @@ public final class S_Certer extends Script
             frame.pack();
             this.frame = frame;
         }
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+        loadConfig();
+        /* A person starting the script always gets the window; an unattended
+           start (login restart, the panel's Play) has nobody to click it and
+           runs on the saved choice -- unless there is none, in which case the
+           window is the only way to pick one and appears regardless. */
+        if (!isUnattended() || item == null) {
+            frame.setLocationRelativeTo(null);
+            frame.toFront();
+            frame.requestFocus();
+            frame.setVisible(true);
+        }
         bank_time = -1L;
         menu_time = -1L;
+        trade_time = -1L;
+    }
+
+    private void saveConfig(int index) {
+        try {
+            java.io.PrintWriter out = new java.io.PrintWriter(CONFIG, "UTF-8");
+            out.println(index);
+            out.println(uncert ? "uncert" : "cert");
+            out.close();
+        } catch (Exception e) {
+            System.out.println("[S_Certer] Could not save the configuration: " + e);
+        }
+    }
+
+    private void loadConfig() {
+        if (!CONFIG.isFile()) {
+            return;
+        }
+        try {
+            java.io.BufferedReader in = new java.io.BufferedReader(
+                new java.io.InputStreamReader(
+                    new java.io.FileInputStream(CONFIG), "UTF-8"));
+            int index = Integer.parseInt(in.readLine().trim());
+            String mode = in.readLine().trim();
+            in.close();
+            if (index < 0 || index >= choice.getItemCount()) {
+                return;
+            }
+            choice.select(index);
+            uncert = mode.equals("uncert");
+            applyChoice(index);
+        } catch (Exception e) {
+            System.out.println("[S_Certer] Could not read the configuration: " + e);
+        }
     }
 
     @Override
     public int main() {
+        /* The window does not block: init() shows it and returns, and this
+           runs at once. Without a choice there is nothing to cert, and a
+           null item here would throw -- which the client answers by
+           restarting the script, which shows the window again, forever. */
+        if (item == null) {
+            return 1000;
+        }
         if (isBanking()) {
             bank_time = -1L;
             if (uncert) {
@@ -129,6 +186,27 @@ public final class S_Certer extends Script
                 bank_time = -1L;
             }
             return random(300, 400);
+        }
+        /* The exchange is not instant. After the amount is picked the certer
+           echoes the choice as a spoken line, a second and a half later the
+           goods arrive, and only then is the conversation over. The original
+           script waited a flat 1.5 s and then looked at its pack: on a slow
+           tick the ore had not landed yet, so it saw "nothing to bank" and
+           talked to the certer again -- a second exchange, 25 more ore into a
+           pack that now had three free slots, and 22 on the ground to vanish.
+           Over a 64-hour run that was about a quarter of the ore. So wait
+           for the pack to actually change, and only give up after 8 s. */
+        if (trade_time != -1L) {
+            int held = getInventoryCount(
+                    uncert ? item.getCertId() : item.getItemId());
+            if (held != trade_held) {
+                trade_time = -1L;
+            } else if (System.currentTimeMillis() < trade_time + 8000L) {
+                return random(300, 400);
+            } else {
+                System.out.println("The exchange did not go through - trying again.");
+                trade_time = -1L;
+            }
         }
         if (menu_time != -1) {
             if (!isQuestMenu()) {
@@ -369,6 +447,7 @@ public final class S_Certer extends Script
                     uncert ? "Five Certificates Please." : "Twenty Five");
             if (index != -1) {
                 answer(index);
+                exchangeStarted();
                 return random(1300, 1500);
             }
             return random(250, 300);
@@ -414,9 +493,17 @@ public final class S_Certer extends Script
         index = getMenuIndex(uncert ? "five" : "Twentyfive");
         if (index != -1) {
             answer(index);
+            exchangeStarted();
             return random(1500, 1700);
         }
         return random(250, 300);
+    }
+
+    /** The amount was just picked: hold off until the pack shows the result. */
+    private void exchangeStarted() {
+        trade_held = getInventoryCount(
+                uncert ? item.getCertId() : item.getItemId());
+        trade_time = System.currentTimeMillis();
     }
 
     private boolean shouldBank() {
@@ -430,7 +517,21 @@ public final class S_Certer extends Script
     @Override
     public void actionPerformed(ActionEvent e) {
         uncert = e.getActionCommand().equals("Uncert");
-        switch (choice.getSelectedIndex()) {
+        int index = choice.getSelectedIndex();
+        applyChoice(index);
+        saveConfig(index);
+        String str = new StringBuilder()
+            .append(uncert ? "Uncerting " : "Certing ")
+            .append(item.getItemName().toLowerCase(Locale.ENGLISH))
+            .append(".")
+            .toString();
+        System.out.println(str);
+        frame.setVisible(false);
+    }
+
+    /** Turn a row of the choice list into the item it stands for. */
+    private void applyChoice(int index) {
+        switch (index) {
             case 0:
                 item = new CertOption(new int[] {
                     299
@@ -557,13 +658,6 @@ public final class S_Certer extends Script
                 }, 369, 536, "fish", "Raw swordfish");
                 break;
         }
-        String str = new StringBuilder()
-            .append(uncert ? "Uncerting " : "Certing ")
-            .append(item.getItemName().toLowerCase(Locale.ENGLISH))
-            .append(".")
-            .toString();
-        System.out.println(str);
-        frame.setVisible(false);
     }
 
     @Override
