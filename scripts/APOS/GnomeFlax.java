@@ -51,13 +51,28 @@ public class GnomeFlax extends Script {
     private static final int BANK_DOWN_X = 714, BANK_DOWN_Y = 1444;
     /*
      * (714,1452) was here and is a walled tile -- tools/route.py finds no
-     * route to it from anywhere on the platform. It never showed because the
-     * bankers start inside talking range and this is only the fallback, but
-     * a walk to an unreachable square is a walk that never happens. The
-     * bankers roam y1448-1458, so the fallback aims at the middle of their
-     * strip on the walkable column.
+     * route to it from anywhere on the platform, so the fallback walk was a
+     * walk that could never happen. (714,1454) is in the middle of the
+     * bankers' roaming strip and is reachable from the bridge.
      */
-    private static final int BANK_X = 715, BANK_Y = 1452;
+    private static final int BANK_X = 714, BANK_Y = 1454;
+
+    /*
+     * THE WAY IN FROM THE BANK LADDER IS A ONE-TILE CORRIDOR AT x=714.
+     *
+     * From the top of the ladder at (714,1445) down to (714,1451) there is
+     * exactly one walkable column; everything either side of it is walled,
+     * (715,1448) included. Any walk that lets x drift off 714 in that
+     * stretch -- which is what a "move three tiles towards the target"
+     * step does the moment the target is not straight ahead -- asks for a
+     * square with no route to it, the player does not move, and the script
+     * spends the next minute at the top of the ladder re-issuing it.
+     *
+     * So this leg is not stepped, it is walked: one walkTo down the column
+     * to the far end, which the client paths in a single go. Past 1451 the
+     * platform opens out and stepping towards the banker is fine again.
+     */
+    private static final int BRIDGE_X = 714, BRIDGE_END_Y = 1451;
 
     /** Anything east of this line upstairs is the bank tree, not the wheel. */
     private static final int PLATFORM_SPLIT = 700;
@@ -226,7 +241,10 @@ public class GnomeFlax extends Script {
         }
         /* Field picked bare for the moment -- stand in it and wait for a
            respawn rather than wandering off and losing the patch. */
-        if (!isWalking() && distanceTo(FLAX_X, FLAX_Y) > 3) {
+        /* Re-click every tick rather than waiting on isWalking(). A walk
+           that silently failed leaves the flag set and the script standing
+           still; re-clicking a walk already under way costs nothing. */
+        if (distanceTo(FLAX_X, FLAX_Y) > 3) {
             walkTo(FLAX_X, FLAX_Y);
         }
         return random(1200, 2000);
@@ -257,14 +275,18 @@ public class GnomeFlax extends Script {
                    can be reached and still leave them out of range, and then
                    there is nothing left to walk towards. */
                 int[] banker = getNpcByIdNotTalk(BANKER);
+                if (banker[0] != -1 && distanceTo(banker[1], banker[2]) <= 4) {
+                    talkToNpc(banker[0]);
+                    return random(2500, 3500);
+                }
+                if (getY() < BRIDGE_END_Y) {
+                    walkTo(BRIDGE_X, BRIDGE_END_Y);   /* down the corridor */
+                    return random(1200, 1800);
+                }
                 if (banker[0] != -1) {
-                    if (distanceTo(banker[1], banker[2]) <= 4) {
-                        talkToNpc(banker[0]);
-                        return random(2500, 3500);
-                    }
                     return stepTowards(banker[1], banker[2]);
                 }
-                return stepTowards(BANK_X, BANK_Y);   /* south over the bridge */
+                return stepTowards(BANK_X, BANK_Y);
             }
             return descend();          /* up the wrong tree */
         }
@@ -295,9 +317,7 @@ public class GnomeFlax extends Script {
         int dx = tx - getX(), dy = ty - getY();
         if (dx > 3) dx = 3; else if (dx < -3) dx = -3;
         if (dy > 3) dy = 3; else if (dy < -3) dy = -3;
-        if (!isWalking()) {
-            walkTo(getX() + dx, getY() + dy);
-        }
+        walkTo(getX() + dx, getY() + dy);
         return random(900, 1500);
     }
 
@@ -324,9 +344,7 @@ public class GnomeFlax extends Script {
             atObject(x, y);
             return random(1800, 2600);
         }
-        if (!isWalking()) {
-            walkTo(x, y + 2);
-        }
+        walkTo(x, y + 2);
         return random(1200, 2000);
     }
 
