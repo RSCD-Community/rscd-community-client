@@ -10420,7 +10420,12 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
                   }
 
                   this.doorCount = k27;
-                  if (k9 != 60000) {
+                  /* k9 is a door id straight off the wire, and makeModel
+                     reads three model vars out of its definition without
+                     looking. An id we have no definition for is nothing we
+                     can draw, so leave the tile empty rather than take the
+                     whole packet handler down with it. */
+                  if (k9 != 60000 && EntityHandler.getDoorDef(k9) != null) {
                      this.engineHandle.registerDoorCollision(i16, k20, byte5, k9);
                      Model model = this.makeModel(i16, k20, byte5, k9, this.doorCount);
                      this.doorModel[this.doorCount] = model;
@@ -10458,6 +10463,19 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
                   if (i32 == 0) {
                      int nextSprite = DataOperations.getIntFromByteArray(data, newNpcOffset, 3);
                      newNpcOffset += 3;
+                     /* getLastNpc returns null for a server index that was
+                        not in last tick's list. That should not happen -- the
+                        server only sends movement for npcs it already told us
+                        about -- but it does, and the usual cause is this
+                        client having thrown away its npc list on a section
+                        reload one tick earlier. The bits have to be consumed
+                        either way or every npc after this one in the packet
+                        decodes as garbage, so read them and drop the update.
+                        The npc comes back on the next full add. */
+                     if (newNPC == null) {
+                        continue;
+                     }
+
                      int waypointCurrent = newNPC.waypointCurrent;
                      int waypointX = newNPC.waypointsX[waypointCurrent];
                      int waypointY = newNPC.waypointsY[waypointCurrent];
@@ -10485,7 +10503,7 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
                   } else {
                      int nextSpriteOffset = DataOperations.getIntFromByteArray(data, newNpcOffset, 4);
                      newNpcOffset += 4;
-                     if ((nextSpriteOffset & 12) == 12) {
+                     if ((nextSpriteOffset & 12) == 12 || newNPC == null) {
                         continue;
                      }
 
@@ -10493,7 +10511,12 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
                   }
                }
 
-               this.npcArray[this.npcCount++] = newNPC;
+               /* Same case as above, for an npc that carried no update at
+                  all: keeping a null in npcArray would move the crash to
+                  whichever renderer or script call reached it first. */
+               if (newNPC != null) {
+                  this.npcArray[this.npcCount++] = newNPC;
+               }
             }
 
             while (newNpcOffset + 34 < length * 8) {
@@ -11211,6 +11234,16 @@ public final class mudclient extends GameWindowMiddleMan implements SingleInstan
    }
 
    final boolean sendWalkCommand(int walkSectionX, int walkSectionY, int x1, int y1, int x2, int y2, boolean stepBoolean, boolean coordsEqual) {
+      /* No stream, no walk. The applet's own code paths can only reach this
+         while a game is running, but a script runs on its own thread and
+         keeps walking straight through a disconnect, a logout and the
+         reconnect that follows -- streamClass is null for the whole of that
+         gap. There is nothing to recover here: the step is simply not
+         sendable, which is what false means to every caller. */
+      if (super.streamClass == null) {
+         return false;
+      }
+
       int stepCount = this.engineHandle.getStepCount(walkSectionX, walkSectionY, x1, y1, x2, y2, this.sectionXArray, this.sectionYArray, stepBoolean);
       if (stepCount == -1) {
          if (!coordsEqual) {

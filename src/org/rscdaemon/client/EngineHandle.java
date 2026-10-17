@@ -54,6 +54,29 @@ public class EngineHandle {
          }
       }
 
+      /* The start tile has to be inside the section before anything else
+         happens. Every neighbour push below is bounds-checked, so once the
+         seed is in range the fill stays in range -- but the seed itself
+         arrives from sectionX/sectionY, and those are not always sane.
+
+         Packet 145 reads an absolute tile off the wire and then subtracts
+         areaX/areaY to make it section-relative. The subtraction trusts
+         loadSection to have moved the area first, and loadSection declines
+         to do anything at all while playerAliveTimeout is non-zero -- the
+         window between dying and respawning. For those ticks sectionX is an
+         absolute coordinate minus a stale origin, which is any number at
+         all: -70, 274 and 543 have all been seen in the wild.
+
+         Walking is not possible from a tile we cannot locate, so say so the
+         way the engine already says it elsewhere. sendWalkCommand handles -1
+         by declining the step, and the next section load puts the origin
+         right. Throwing instead kills the whole thread, which on a scripted
+         client means the script dies mid-errand for a tick of bad bookkeeping
+         it had no part in. */
+      if (walkSectionX < 0 || walkSectionX > 95 || walkSectionY < 0 || walkSectionY > 95) {
+         return -1;
+      }
+
       int i2 = 0;
       int j2 = 0;
       int k2 = walkSectionX;
