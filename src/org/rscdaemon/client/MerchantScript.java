@@ -198,11 +198,6 @@ public abstract class MerchantScript extends Script {
       return false;
    }
 
-   /** Most units to hand over in one trade. */
-   protected int maxPerTrade() {
-      return 100;
-   }
-
    /** Item slots in one side of a trade window. */
    protected static final int TRADE_SLOTS = 12;
 
@@ -430,11 +425,6 @@ public abstract class MerchantScript extends Script {
       if (want > stock()) {
          want = stock();
          reason = "only " + want + " left";
-      }
-
-      if (want > maxPerTrade()) {
-         want = maxPerTrade();
-         reason = want + " a trade max";
       }
 
       if (want > slotCap()) {
