@@ -178,6 +178,31 @@ public final class FableGuildMiner extends MerchantScript
 		{ 220, 634 }, { 220, 636 }
 	};
 
+	/*
+	 * The bank precinct: the bank door, east along the y=571 wall, then the
+	 * run down the outside of the east block and back up to its north-east
+	 * corner. Bank end first, same as the other two.
+	 *
+	 * This is not a route anything deliberately walks. It exists so that
+	 * being loose in the streets around the bank is a recoverable state
+	 * instead of a terminal one. The certer wanders, exchangeStep chases it,
+	 * and the chase ends wherever the npc happened to be standing -- which
+	 * is how this bot came to sit at 297,556 for six days: ten tiles off the
+	 * mine path against a slack of eight, with eighteen perfectly walkable
+	 * steps between it and the nearest flag it recognised.
+	 *
+	 * Note that straight-line distance is worthless here and the slack test
+	 * only works because these waypoints blanket the block. The tile at
+	 * 303,571 is twenty tiles from the bank door and eighty-seven steps from
+	 * it, because the wall in between has no gate on this side.
+	 */
+	private static final int[][] PRECINCT = {
+		{ 283, 571 }, { 285, 571 }, { 288, 571 }, { 291, 571 }, { 294, 571 },
+		{ 296, 570 }, { 296, 567 }, { 296, 564 }, { 296, 561 }, { 296, 558 },
+		{ 297, 556 }, { 297, 554 }, { 299, 553 }, { 300, 551 }, { 300, 548 },
+		{ 300, 545 }
+	};
+
 	/** The shed door, its outside tile, and the tile just inside it. */
 	private static final int DOOR_X   = 274;
 	private static final int DOOR_Y   = 563;
@@ -344,10 +369,47 @@ public final class FableGuildMiner extends MerchantScript
 				return walkRoad( false );
 			}
 
-			note( "Lost at " + getX() + "," + getY() + " - not walking blind." );
+			if ( distanceToRoute( PRECINCT ) <= ROUTE_SLACK )
+			{
+				note( "Off the flags at " + getX() + "," + getY()
+					+ " but in the bank precinct - walking home." );
+				return walkRoad( false );
+			}
+
+			/* Genuinely nowhere known. Say so, but say it on a timer: the
+			   first time this happened the same line went into the log a
+			   hundred thousand times over six days and nobody noticed,
+			   because a message that repeats every five seconds reads
+			   exactly like a message that is not there. One line a minute,
+			   and a louder one once it is clear nothing is going to shake
+			   it loose. */
+			long now = System.currentTimeMillis();
+
+			if ( lostSince == 0L )
+			{
+				lostSince = now;
+			}
+
+			if ( now >= lostQuiet )
+			{
+				long mins = ( now - lostSince ) / 60000L;
+
+				note( "Lost at " + getX() + "," + getY()
+					+ " - not walking blind. Stuck " + mins + " min." );
+
+				if ( mins >= 10L )
+				{
+					note( "STUCK: " + mins + " min at " + getX() + ","
+						+ getY() + " with no route home - needs a human." );
+				}
+
+				lostQuiet = now + 60000L;
+			}
+
 			return random( 5000, 8000 );
 		}
 
+		lostSince = 0L;
 		return walkPath( true );
 	}
 
@@ -413,7 +475,21 @@ public final class FableGuildMiner extends MerchantScript
 
 		int[] banker = getNpcByIdNotTalk( BANKERS );
 
-		if ( banker[0] != -1 )
+		/*
+		 * A banker has to be within reach before there is any point talking
+		 * to it. The sighting radius is about sixteen tiles and the Falador
+		 * and Varrock bankers both roam a box behind their counter, so a bot
+		 * loitering anywhere in the surrounding streets can see one, call
+		 * itself "at the bank", and spend every tick asking an npc it cannot
+		 * walk to -- the counter tile is behind a wall, the server declines
+		 * the step, and nothing moves or logs a complaint. That is how the
+		 * coal bot came to print "At the bank carrying 27 coal" eight times
+		 * from fourteen tiles away before falling through into the lost
+		 * branch. Four tiles, and otherwise walk to the bank door like any
+		 * other tick. CatherbyLobster had this right first; the miners did
+		 * not.
+		 */
+		if ( banker[0] != -1 && distanceTo( banker[1], banker[2] ) <= 4 )
 		{
 			note( "At the bank carrying " + oresCarried()
 				+ " coal, mining " + getLevel( MINING ) + "." );
@@ -856,6 +932,13 @@ public final class FableGuildMiner extends MerchantScript
 
 	/** How far off a sampled route still counts as being on it. */
 	private static final int ROUTE_SLACK = 8;
+
+	/** When the bot first found itself off every known route, and when it is
+	    next allowed to complain about it. Both in wall-clock millis; both
+	    survive nothing, which is fine -- a relogin that lands it somewhere it
+	    recognises is exactly the case where the clock should start over. */
+	private long lostSince;
+	private long lostQuiet;
 
 	/** Distance to the nearest waypoint of a route. */
 	private int distanceToRoute( int[][] route )

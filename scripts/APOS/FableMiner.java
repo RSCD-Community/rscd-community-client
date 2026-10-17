@@ -359,7 +359,21 @@ public final class FableMiner extends MerchantScript
 
 		int[] banker = getNpcByIdNotTalk( BANKERS );
 
-		if ( banker[0] != -1 )
+		/*
+		 * A banker has to be within reach before there is any point talking
+		 * to it. The sighting radius is about sixteen tiles and the Falador
+		 * and Varrock bankers both roam a box behind their counter, so a bot
+		 * loitering anywhere in the surrounding streets can see one, call
+		 * itself "at the bank", and spend every tick asking an npc it cannot
+		 * walk to -- the counter tile is behind a wall, the server declines
+		 * the step, and nothing moves or logs a complaint. That is how the
+		 * coal bot came to print "At the bank carrying 27 coal" eight times
+		 * from fourteen tiles away before falling through into the lost
+		 * branch. Four tiles, and otherwise walk to the bank door like any
+		 * other tick. CatherbyLobster had this right first; the miners did
+		 * not.
+		 */
+		if ( banker[0] != -1 && distanceTo( banker[1], banker[2] ) <= 4 )
 		{
 			note( "At the bank carrying "
 				+ oresCarried() + " ore, mining " + getLevel( MINING ) + "." );
