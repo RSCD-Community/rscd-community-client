@@ -1195,6 +1195,23 @@ public abstract class Methods {
       this.rs.autocastEnabled = on;
    }
 
+   /**
+    * Forget the autocast target without touching the switch.
+    *
+    * The switch is the player's: it is the one in the F2 settings and the
+    * one the overlay reports, and a script that flips it off between fights
+    * leaves the panel reading OFF while the script is plainly casting. What a
+    * script actually wants at the end of a fight is for the autocaster to
+    * stop chasing whoever it was last aimed at -- a player who fled alive is
+    * still findable, and the repeat would walk after them -- and that is a
+    * matter of the target, not the switch. With no target the autocaster
+    * fires nothing and picks a new one only when something engages us.
+    */
+   public final void ClearAutocastTarget() {
+      this.rs.autocastTargetType = -1;
+      this.rs.autocastTargetIndex = -1;
+   }
+
    /** Returns your fatigue level */
    public final int GetFatigue() {
       return this.rs.fatigue;
